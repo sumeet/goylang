@@ -20,6 +20,7 @@ const (
 	BinaryOp
 	Newline
 	Comma
+	StringLiteral
 )
 
 func formatToken(t Token) string {
@@ -48,6 +49,8 @@ func formatToken(t Token) string {
 		return "Newline"
 	case Comma:
 		return "Comma"
+	case StringLiteral:
+		return fmt.Sprintf("StringLiteral(%s)", t.Value)
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t.Type))
 	}
@@ -79,6 +82,8 @@ func formatTokenType(t TokenType) string {
 		return "Newline"
 	case Comma:
 		return "Comma"
+	case StringLiteral:
+		return "StringLiteral"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t))
 	}
@@ -150,6 +155,16 @@ func lex(dat []byte) []Token {
 			tokens = append(tokens, Token{BinaryOp, string([]byte{dat[i]})})
 		} else if dat[i] == ',' {
 			tokens = append(tokens, Token{Comma, string([]byte{dat[i]})})
+		} else if dat[i] == '"' {
+			thisStringLit := []byte{dat[i]}
+			i += 1
+			// TODO: this doesn't handle an escaped "
+			for dat[i] != '"' {
+				thisStringLit = append(thisStringLit, dat[i])
+				i += 1
+			}
+			thisStringLit = append(thisStringLit, '"')
+			tokens = append(tokens, Token{StringLiteral, string(thisStringLit)})
 		} else {
 			panic(fmt.Sprintf("unrecognized character %c", dat[i]))
 		}

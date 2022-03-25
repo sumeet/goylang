@@ -41,6 +41,10 @@ type IntLiteralExpr struct {
 	Value int
 }
 
+type StringLiteralExpr struct {
+	Value string
+}
+
 type VarRefExpr struct {
 	VarName string
 }
@@ -119,6 +123,14 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	var maybeIntLiteral *IntLiteralExpr
 	var varRef VarRefExpr
 	var thisToken Token
+
+	if tokens[0].Type == StringLiteral {
+		if value, err := strconv.Unquote(tokens[0].Value); err != nil {
+			panic(fmt.Sprintf("unable to unquote string: %s: %s", tokens[0].Value, err))
+		} else {
+			return StringLiteralExpr{Value: value}, tokens[1:]
+		}
+	}
 
 	maybeFuncCall, tokens = tryParseFuncCall(tokens)
 	if maybeFuncCall != nil {
