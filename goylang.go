@@ -79,13 +79,12 @@ func parseFuncDecl(tokens []Token) (Function, []Token) {
 
 func parseBlock(tokens []Token) (Block, []Token) {
 	var block Block
-	var thisToken Token
 	var thisStatement Statement
 
 	_, tokens = consumeToken(tokens, LCurly)
 	for len(tokens) > 0 {
-		thisToken, tokens = consumeToken(tokens, Newline)
-		if thisToken.Type == RCurly {
+		_, tokens = consumeToken(tokens, Newline)
+		if tokens[0].Type == RCurly {
 			_, tokens = consumeToken(tokens, RCurly)
 			break
 		}
