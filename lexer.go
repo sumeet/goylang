@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type TokenType int
+type TokenType uint8
 
 const (
 	FuncDecl TokenType = iota

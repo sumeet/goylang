@@ -5,12 +5,56 @@ import (
 	"strconv"
 )
 
-type Statement interface{}
+type NodeType uint8
 
-type Expr interface{}
+const (
+	ProgramNodeType NodeType = iota
+	BlockNodeType
+	AssignmentStmtNodeType
+	ReassignmentStmtNodeType
+	StringLiteralExprNodeType
+	FuncCallExprNodeType
+	IntLiteralExprNodeType
+	VarRefExprNodeType
+)
+
+type Node interface {
+	Children() []Node
+	NodeType() NodeType
+}
+
+type ExprType uint8
+
+const (
+	StringLiteralExprType ExprType = iota
+	FuncCallExprType
+	IntLiteralExprType
+	VarRefExprType
+)
+
+type Statement interface {
+	Node
+}
+
+type Expr interface {
+	Statement
+	ExprType() ExprType
+}
 
 type Block struct {
 	statements []Statement
+}
+
+func (b Block) NodeType() NodeType {
+	return BlockNodeType
+}
+
+func (b Block) Children() []Node {
+	var stmts []Node
+	for _, stmt := range b.statements {
+		stmts = append(stmts, stmt)
+	}
+	return stmts
 }
 
 type Function struct {
@@ -18,8 +62,24 @@ type Function struct {
 	Body Block
 }
 
+func (f Function) Children() []Node {
+	return f.Body.Children()
+}
+
+func (f Function) NodeType() NodeType {
+	return ProgramNodeType
+}
+
 type Program struct {
 	functions []Function
+}
+
+func (p Program) Children() []Function {
+	return p.functions
+}
+
+func (p Program) NodeType() NodeType {
+	return ProgramNodeType
 }
 
 type AssignmentStmt struct {
@@ -27,9 +87,25 @@ type AssignmentStmt struct {
 	Expr    Expr
 }
 
+func (a AssignmentStmt) NodeType() NodeType {
+	return AssignmentStmtNodeType
+}
+
+func (a AssignmentStmt) Children() []Node {
+	return []Node{a.Expr}
+}
+
 type ReassignmentStmt struct {
 	VarName string
 	Expr    Expr
+}
+
+func (r ReassignmentStmt) Children() []Node {
+	return []Node{r.Expr}
+}
+
+func (r ReassignmentStmt) NodeType() NodeType {
+	return ReassignmentStmtNodeType
 }
 
 type FuncCallExpr struct {
@@ -37,16 +113,68 @@ type FuncCallExpr struct {
 	Args     []Expr
 }
 
+func (f FuncCallExpr) Children() []Node {
+	var children []Node
+	for _, arg := range f.Args {
+		children = append(children, arg)
+	}
+	return children
+}
+
+func (f FuncCallExpr) NodeType() NodeType {
+	return FuncCallExprNodeType
+}
+
+func (_ FuncCallExpr) ExprType() ExprType {
+	return FuncCallExprType
+}
+
 type IntLiteralExpr struct {
 	Value int
+}
+
+func (_ IntLiteralExpr) Children() []Node {
+	return []Node{}
+}
+
+func (_ IntLiteralExpr) NodeType() NodeType {
+	return IntLiteralExprNodeType
+}
+
+func (_ IntLiteralExpr) ExprType() ExprType {
+	return IntLiteralExprType
 }
 
 type StringLiteralExpr struct {
 	Value string
 }
 
+func (s StringLiteralExpr) Children() []Node {
+	return []Node{}
+}
+
+func (s StringLiteralExpr) NodeType() NodeType {
+	return StringLiteralExprNodeType
+}
+
+func (s StringLiteralExpr) ExprType() ExprType {
+	return StringLiteralExprType
+}
+
 type VarRefExpr struct {
 	VarName string
+}
+
+func (v VarRefExpr) Children() []Node {
+	return []Node{}
+}
+
+func (v VarRefExpr) NodeType() NodeType {
+	return VarRefExprNodeType
+}
+
+func (v VarRefExpr) ExprType() ExprType {
+	return VarRefExprType
 }
 
 func parse(tokens []Token) (program Program) {
