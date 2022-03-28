@@ -1,4 +1,4 @@
 func main() {
     a := 1
-    Printf("%d\n", a)
+    printf("%d\n", a)
 }

@@ -18,6 +18,13 @@ const (
 	VarRefExprNodeType
 )
 
+func Walk(n Node, fn func(Node)) {
+	fn(n)
+	for _, child := range n.Children() {
+		Walk(child, fn)
+	}
+}
+
 type Node interface {
 	Children() []Node
 	NodeType() NodeType
@@ -74,8 +81,12 @@ type Program struct {
 	functions []Function
 }
 
-func (p Program) Children() []Function {
-	return p.functions
+func (p Program) Children() []Node {
+	var children []Node
+	for _, f := range p.functions {
+		children = append(children, f)
+	}
+	return children
 }
 
 func (p Program) NodeType() NodeType {
