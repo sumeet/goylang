@@ -25,6 +25,6 @@ func main() {
 	}
 	tokens := lex(dat)
 	program := parse(tokens)
-	fmt.Printf("%#v\n", program)
+	//fmt.Printf("%#v\n", program)
 	fmt.Printf("%#v\n", program.Children())
 }
