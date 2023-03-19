@@ -61,7 +61,7 @@ func Compile(program Program) string {
 type Type uint8
 
 const (
-	IntType Type = iota
+	IntType Type = iota // i64
 )
 
 func guessType(expr Expr) Type {
@@ -73,23 +73,81 @@ func guessType(expr Expr) Type {
 	}
 }
 
+func sizeOf(t Type) int {
+	switch t {
+	case IntType:
+		return 8
+	default:
+		panic("unsupported type")
+	}
+}
+
 func compileFunction(function Function) string {
 	var buf bytes.Buffer
-	stackVars := make(map[string]Type)
+	// TODO: strike here
 	buf.WriteString(fmt.Sprintf("%s:\n", function.Name))
+
+	stackVars := findStackVars(function)
+	buf.WriteString(fmt.Sprintf("enter %d, 0\n", stackVars.StackSize()))
+	buf.WriteString(compileBlock(function.Body, stackVars))
+	buf.WriteString("leave\n")
+
+	// TODO: implement return, every function just always returns 0 now
+	buf.WriteString("mov rax, 0\n")
 	buf.WriteString("ret\n")
 	return buf.String()
 }
 
-func findVariables(program Program) map[string]Type {
+func compileBlock(body Block, stackVars stackVars) string {
+	var buf bytes.Buffer
+	for _, stmt := range body.statements {
+		buf.WriteString(compileStatement(stmt, stackVars))
+	}
+	return buf.String()
+}
+
+func compileStatement(stmt Statement, stackVars stackVars) string {
+	switch stmt.NodeType() {
+	case AssignmentStmtNodeType:
+		return compileAssignmentStmt(stmt.(AssignmentStmt), stackVars)
+	default:
+		panic("unsupported node type")
+	}
+}
+
+func compileAssignmentStmt(stmt AssignmentStmt, vars stackVars) string {
+	return "TODO: unimplemented\n"
+}
+
+type stackVars struct {
+	typeByName   map[string]Type
+	offsetByName map[string]int
+}
+
+func newStackVars(typeByName map[string]Type) stackVars {
+
+	return stackVars{
+		typeByName: typeByName,
+	}
+}
+
+func (sv stackVars) StackSize() int {
+	size := 0
+	for _, t := range sv.typeByName {
+		size += sizeOf(t)
+	}
+	return size
+}
+
+func findStackVars(function Function) stackVars {
 	variables := make(map[string]Type)
-	Walk(program, func(node Node) {
-		if node.NodeType() == VariableDeclarationNodeType {
-			child := node.(VariableDeclaration)
-			variables[child.Name] = guessType(child.Expr)
+	Walk(function, func(node Node) {
+		if node.NodeType() == AssignmentStmtNodeType {
+			child := node.(AssignmentStmt)
+			variables[child.VarName] = guessType(child.Expr)
 		}
 	})
-	return variables
+	return newStackVars(variables)
 }
 
 func main() {
