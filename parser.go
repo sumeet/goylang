@@ -16,6 +16,7 @@ const (
 	FuncCallExprNodeType
 	IntLiteralExprNodeType
 	VarRefExprNodeType
+	FunctionNodeType
 )
 
 func (n NodeType) ToString() string {
@@ -36,6 +37,8 @@ func (n NodeType) ToString() string {
 		return "IntLiteralExpr"
 	case VarRefExprNodeType:
 		return "VarRefExpr"
+	case FunctionNodeType:
+		return "Function"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -72,7 +75,7 @@ type Expr interface {
 }
 
 type Block struct {
-	statements []Statement
+	Statements []Statement
 }
 
 func (b Block) NodeType() NodeType {
@@ -81,7 +84,7 @@ func (b Block) NodeType() NodeType {
 
 func (b Block) Children() []Node {
 	var stmts []Node
-	for _, stmt := range b.statements {
+	for _, stmt := range b.Statements {
 		stmts = append(stmts, stmt)
 	}
 	return stmts
@@ -97,16 +100,16 @@ func (f Function) Children() []Node {
 }
 
 func (f Function) NodeType() NodeType {
-	return ModuleNodeType
+	return FunctionNodeType
 }
 
 type Module struct {
-	statements []Statement
+	Statements []Statement
 }
 
 func (p Module) Children() []Node {
 	var children []Node
-	for _, f := range p.statements {
+	for _, f := range p.Statements {
 		children = append(children, f)
 	}
 	return children
@@ -218,7 +221,7 @@ func parse(tokens []Token) (program Module) {
 		case FuncDecl:
 			var fn Function
 			fn, tokens = parseFuncDecl(tokens)
-			program.statements = append(program.statements, fn)
+			program.Statements = append(program.Statements, fn)
 		case Newline:
 			tokens = tokens[1:]
 		default:
@@ -254,7 +257,7 @@ func parseBlock(tokens []Token) (Block, []Token) {
 			break
 		}
 		thisStatement, tokens = parseStatement(tokens)
-		block.statements = append(block.statements, thisStatement)
+		block.Statements = append(block.Statements, thisStatement)
 	}
 	return block, tokens
 }

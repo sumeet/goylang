@@ -1,4 +1,57 @@
+compileEnum:
+    writeEnumStatement()
+    writeInterface()
+    writeStructs()
+
+
+enum Token {
+	Assignment,
+	Reassignment,
+	BinaryOp,
+	Newline,
+	Comma,
+	StringLiteral(string),
+	LCurly,
+	RCurly,
+	LParen,
+	RParen,
+	Ident(string),
+	IntLiteral(int64),
+}
+
+func x(t interface Token) {
+    match (t) {
+    case SomeArbitraryTypeThatMayImplementToken -> SomeArbitrary{ name, value }:
+        sattmit.something
+        //
+    default: panic(),
+    }
+}
+
+func x(enum Token) {
+
+}
+
+ ===>
+interface Token {
+//    TokenType() TokenType
+}
+
+type Token_Assignment struct{}
+type Token_Reassignment struct {}
+type IntLiteral struct {
+    Value int64
+}
+
+
+
+const (
+	FuncDecl TokenType = iota
+)
+
 func main() {
     a := 1
-    printf("%d\n", a)
+    println("helloooo", a)
+    b := 2
+    println(b)
 }
