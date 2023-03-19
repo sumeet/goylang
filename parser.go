@@ -8,7 +8,7 @@ import (
 type NodeType uint8
 
 const (
-	ProgramNodeType NodeType = iota
+	ModuleNodeType NodeType = iota
 	BlockNodeType
 	AssignmentStmtNodeType
 	ReassignmentStmtNodeType
@@ -17,6 +17,29 @@ const (
 	IntLiteralExprNodeType
 	VarRefExprNodeType
 )
+
+func (n NodeType) ToString() string {
+	switch n {
+	case ModuleNodeType:
+		return "Module"
+	case BlockNodeType:
+		return "Block"
+	case AssignmentStmtNodeType:
+		return "AssignmentStmt"
+	case ReassignmentStmtNodeType:
+		return "ReassignmentStmt"
+	case StringLiteralExprNodeType:
+		return "StringLiteralExpr"
+	case FuncCallExprNodeType:
+		return "FuncCallExpr"
+	case IntLiteralExprNodeType:
+		return "IntLiteralExpr"
+	case VarRefExprNodeType:
+		return "VarRefExpr"
+	default:
+		panic(fmt.Sprintf("unknown node type %d", n))
+	}
+}
 
 func Walk(n Node, fn func(Node)) {
 	fn(n)
@@ -74,23 +97,23 @@ func (f Function) Children() []Node {
 }
 
 func (f Function) NodeType() NodeType {
-	return ProgramNodeType
+	return ModuleNodeType
 }
 
-type Program struct {
-	functions []Function
+type Module struct {
+	statements []Statement
 }
 
-func (p Program) Children() []Node {
+func (p Module) Children() []Node {
 	var children []Node
-	for _, f := range p.functions {
+	for _, f := range p.statements {
 		children = append(children, f)
 	}
 	return children
 }
 
-func (p Program) NodeType() NodeType {
-	return ProgramNodeType
+func (p Module) NodeType() NodeType {
+	return ModuleNodeType
 }
 
 type AssignmentStmt struct {
@@ -188,14 +211,14 @@ func (v VarRefExpr) ExprType() ExprType {
 	return VarRefExprType
 }
 
-func parse(tokens []Token) (program Program) {
+func parse(tokens []Token) (program Module) {
 	for len(tokens) > 0 {
 		token := tokens[0]
 		switch token.Type {
 		case FuncDecl:
 			var fn Function
 			fn, tokens = parseFuncDecl(tokens)
-			program.functions = append(program.functions, fn)
+			program.statements = append(program.statements, fn)
 		case Newline:
 			tokens = tokens[1:]
 		default:
