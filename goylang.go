@@ -152,9 +152,17 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileIntLiteralExpr(b, e.(IntLiteralExpr))
 	case VarRefExprType:
 		compileVarRefExpr(b, e.(VarRefExpr))
+	case DotAccessExprType:
+		compileDotAccessExpr(b, e.(DotAccessExpr))
 	default:
 		panic(fmt.Sprintf("unknown expr type %d", e.ExprType()))
 	}
+}
+
+func compileDotAccessExpr(b *strings.Builder, expr DotAccessExpr) {
+	compileExpr(b, expr.Left)
+	b.WriteString(".")
+	b.WriteString(expr.Right)
 }
 
 func compileBlock(b *strings.Builder, block Block) {

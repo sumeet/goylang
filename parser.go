@@ -19,7 +19,36 @@ const (
 	FunctionNodeType
 	EnumNodeType
 	MatchNodeType
+	// fields, methods // type level, so variants
+	InitializerNodeType
+	DotAccessNodeType
 )
+
+// Blah.Foo.Far
+// blah.Foo().Far().Something
+
+type DotAccessExpr struct {
+	Left  Expr
+	Right string
+}
+
+func (d DotAccessExpr) Children() []Node {
+	return []Node{d.Left}
+}
+
+func (d DotAccessExpr) NodeType() NodeType {
+	return DotAccessNodeType
+}
+
+func (d DotAccessExpr) ExprType() ExprType {
+	return DotAccessExprType
+}
+
+type Initializer struct {
+	Type Node
+	// TODO: skipping the named params
+	Args []Node
+}
 
 func (n NodeType) ToString() string {
 	switch n {
@@ -69,6 +98,7 @@ const (
 	FuncCallExprType
 	IntLiteralExprType
 	VarRefExprType
+	DotAccessExprType
 )
 
 type Statement interface {
@@ -363,32 +393,43 @@ func parseAssignment(tokens []Token) (AssignmentStmt, []Token) {
 }
 
 func parseExpr(tokens []Token) (Expr, []Token) {
-	var maybeFuncCall *FuncCallExpr
-	var maybeIntLiteral *IntLiteralExpr
-	var varRef VarRefExpr
-	var thisToken Token
+	old := func() (Expr, []Token) {
+		var maybeFuncCall *FuncCallExpr
+		var maybeIntLiteral *IntLiteralExpr
+		var varRef VarRefExpr
+		var thisToken Token
 
-	if tokens[0].Type == StringLiteral {
-		if value, err := strconv.Unquote(tokens[0].Value); err != nil {
-			panic(fmt.Sprintf("unable to unquote string: %s: %s", tokens[0].Value, err))
-		} else {
-			return StringLiteralExpr{Value: value}, tokens[1:]
+		if tokens[0].Type == StringLiteral {
+			if value, err := strconv.Unquote(tokens[0].Value); err != nil {
+				panic(fmt.Sprintf("unable to unquote string: %s: %s", tokens[0].Value, err))
+			} else {
+				return StringLiteralExpr{Value: value}, tokens[1:]
+			}
 		}
+
+		maybeFuncCall, tokens = tryParseFuncCall(tokens)
+		if maybeFuncCall != nil {
+			return *maybeFuncCall, tokens
+		}
+		maybeIntLiteral, tokens = tryParseIntLiteral(tokens)
+		if maybeIntLiteral != nil {
+			return *maybeIntLiteral, tokens
+		}
+
+		// therefore, must be a var reference
+		thisToken, tokens = consumeToken(tokens, Ident)
+		varRef.VarName = thisToken.Value
+		return varRef, tokens
+	}
+	node, tokens := old()
+	if len(tokens) > 0 && tokens[0].Type == Dot {
+		_, tokens = consumeToken(tokens, Dot)
+		var thisToken Token
+		thisToken, tokens = consumeToken(tokens, Ident)
+		return DotAccessExpr{Left: node, Right: thisToken.Value}, tokens
 	}
 
-	maybeFuncCall, tokens = tryParseFuncCall(tokens)
-	if maybeFuncCall != nil {
-		return *maybeFuncCall, tokens
-	}
-	maybeIntLiteral, tokens = tryParseIntLiteral(tokens)
-	if maybeIntLiteral != nil {
-		return *maybeIntLiteral, tokens
-	}
-
-	// therefore, must be a var reference
-	thisToken, tokens = consumeToken(tokens, Ident)
-	varRef.VarName = thisToken.Value
-	return varRef, tokens
+	return node, tokens
 }
 
 func tryParseFuncCall(tokens []Token) (*FuncCallExpr, []Token) {
