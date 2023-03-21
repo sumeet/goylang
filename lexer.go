@@ -22,6 +22,9 @@ const (
 	Comma
 	StringLiteral
 	EnumDecl
+	Match
+	Dot
+	Colon
 )
 
 func formatToken(t Token) string {
@@ -30,6 +33,8 @@ func formatToken(t Token) string {
 		return "FuncDecl"
 	case EnumDecl:
 		return "Enum"
+	case Match:
+		return "Match"
 	case LParen:
 		return "LParen"
 	case RParen:
@@ -52,6 +57,10 @@ func formatToken(t Token) string {
 		return "Newline"
 	case Comma:
 		return "Comma"
+	case Dot:
+		return "Dot"
+	case Colon:
+		return "Colon"
 	case StringLiteral:
 		return fmt.Sprintf("StringLiteral(%s)", t.Value)
 	default:
@@ -65,6 +74,8 @@ func formatTokenType(t TokenType) string {
 		return "FuncDecl"
 	case EnumDecl:
 		return "EnumDecl"
+	case Match:
+		return "Match"
 	case LParen:
 		return "LParen"
 	case RParen:
@@ -89,6 +100,10 @@ func formatTokenType(t TokenType) string {
 		return "Comma"
 	case StringLiteral:
 		return "StringLiteral"
+	case Dot:
+		return "Dot"
+	case Colon:
+		return "Colon"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t))
 	}
@@ -129,6 +144,8 @@ func lex(dat []byte) []Token {
 				tokens = append(tokens, Token{FuncDecl, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("enum")) == 0 {
 				tokens = append(tokens, Token{EnumDecl, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("match")) == 0 {
+				tokens = append(tokens, Token{Match, string(thisIdent)})
 			} else {
 				tokens = append(tokens, Token{Ident, string(thisIdent)})
 			}
@@ -139,6 +156,8 @@ func lex(dat []byte) []Token {
 			}
 			i -= 1
 			tokens = append(tokens, Token{IntLiteral, string(thisInt)})
+		} else if dat[i] == '.' {
+			tokens = append(tokens, Token{Dot, "."})
 		} else if dat[i] == ' ' || dat[i] == '\t' {
 			// ignore
 		} else if bytes.Compare(dat[i:i+2], []byte{'/', '/'}) == 0 {
@@ -169,6 +188,8 @@ func lex(dat []byte) []Token {
 			i += 1
 		} else if dat[i] == '=' {
 			tokens = append(tokens, Token{Reassignment, string([]byte{dat[i]})})
+		} else if dat[i] == ':' {
+			tokens = append(tokens, Token{Colon, string([]byte{dat[i]})})
 		} else if dat[i] == '+' {
 			tokens = append(tokens, Token{BinaryOp, string([]byte{dat[i]})})
 		} else if dat[i] == ',' {

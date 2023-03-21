@@ -8,5 +8,9 @@ enum Color {
 }
 
 func main() {
+    r := Color.Red { 123 }
+    // match r {
+    //    Color.Other: println("Other"),
+    // }
     println("Hello, world!") // ajiweofjiowe
 }

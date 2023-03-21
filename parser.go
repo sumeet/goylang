@@ -18,6 +18,7 @@ const (
 	VarRefExprNodeType
 	FunctionNodeType
 	EnumNodeType
+	MatchNodeType
 )
 
 func (n NodeType) ToString() string {
@@ -42,6 +43,8 @@ func (n NodeType) ToString() string {
 		return "Function"
 	case EnumNodeType:
 		return "EnumNodeType"
+	case MatchNodeType:
+		return "MatchNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -317,6 +320,17 @@ func parseBlock(tokens []Token) (Block, []Token) {
 	_, tokens = consumeToken(tokens, LCurly)
 	for len(tokens) > 0 {
 		_, tokens = consumeToken(tokens, Newline)
+		// eat the rest of the newlines
+		for {
+			if len(tokens) == 0 {
+				break
+			}
+			if tokens[0].Type == Newline {
+				tokens = tokens[1:]
+			} else {
+				break
+			}
+		}
 		if tokens[0].Type == RCurly {
 			_, tokens = consumeToken(tokens, RCurly)
 			break
