@@ -13,21 +13,6 @@ type A struct{}
 type B struct{}
 
 func main() {
-	a := A{}
-	b := B{}
-	fn := func(x X) {
-		switch x.(type) {
-		case A:
-			fmt.Println("A")
-		case B:
-			fmt.Println("B")
-		}
-	}
-	fn(b)
-	fn(a)
-}
-
-func main2() {
 	dat, err := os.ReadFile("./hello.goy")
 	if err != nil {
 		panic(err)
@@ -91,10 +76,70 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileVarRefExpr(b, s.(VarRefExpr))
 	case FunctionNodeType:
 		compileFunction(b, s.(Function))
+	case EnumNodeType:
+		compileEnum(b, s.(Enum))
 	default:
 		panic(fmt.Sprintf("unknown node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileEnum(b *strings.Builder, enum Enum) {
+	// iota constants for Type enum
+	compileIotaConstants(b, enum)
+	// interface
+	compileEnumInterfaces(b, enum)
+	// structs
+	compileEnumStructs(b, enum)
+}
+
+func typeName(e Enum) string {
+	return fmt.Sprintf("%sType", e.Name)
+}
+
+func enumVariantTag(e Enum, variant Variant) string {
+	return fmt.Sprintf("%sType%s", e.Name, variant.Name)
+}
+
+func compileIotaConstants(b *strings.Builder, enum Enum) {
+	b.WriteString(fmt.Sprintf("type %s uint8\n", typeName(enum)))
+
+	b.WriteString("const (\n")
+	for i, variant := range enum.Variants {
+		b.WriteString(enumVariantTag(enum, variant))
+		if i == 0 {
+			b.WriteString(" = iota")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(")\n")
+}
+
+//interface Token {
+//TokenType() TokenType
+//}
+
+const IfaceMethodName = "EnumType"
+
+func compileEnumInterfaces(b *strings.Builder, enum Enum) {
+	b.WriteString(fmt.Sprintf("type %s interface {\n", enum.Name))
+	b.WriteString(fmt.Sprintf("%s() %s\n", IfaceMethodName, typeName(enum)))
+	b.WriteString("}\n")
+}
+
+func compileEnumStructs(b *strings.Builder, enum Enum) {
+	for _, variant := range enum.Variants {
+		someName := fmt.Sprintf("%s%s", enum.Name, variant.Name)
+		b.WriteString(fmt.Sprintf("type %s struct {\n", someName))
+		if variant.Type != nil {
+			b.WriteString(fmt.Sprintf("Value %s", variant.Type.Name))
+		}
+		b.WriteString("}\n")
+
+		b.WriteString(fmt.Sprintf("func (i %s) %s() %s {\n", someName, IfaceMethodName, typeName(enum)))
+		b.WriteString(fmt.Sprintf("return %s", enumVariantTag(enum, variant)))
+		b.WriteString("}\n")
+	}
 }
 
 func compileExpr(b *strings.Builder, e Expr) {

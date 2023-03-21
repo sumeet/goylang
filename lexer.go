@@ -21,12 +21,15 @@ const (
 	Newline
 	Comma
 	StringLiteral
+	EnumDecl
 )
 
 func formatToken(t Token) string {
 	switch t.Type {
 	case FuncDecl:
 		return "FuncDecl"
+	case EnumDecl:
+		return "Enum"
 	case LParen:
 		return "LParen"
 	case RParen:
@@ -60,6 +63,8 @@ func formatTokenType(t TokenType) string {
 	switch t {
 	case FuncDecl:
 		return "FuncDecl"
+	case EnumDecl:
+		return "EnumDecl"
 	case LParen:
 		return "LParen"
 	case RParen:
@@ -122,6 +127,8 @@ func lex(dat []byte) []Token {
 			i -= 1
 			if bytes.Compare(thisIdent, []byte("func")) == 0 {
 				tokens = append(tokens, Token{FuncDecl, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("enum")) == 0 {
+				tokens = append(tokens, Token{EnumDecl, string(thisIdent)})
 			} else {
 				tokens = append(tokens, Token{Ident, string(thisIdent)})
 			}
@@ -134,6 +141,17 @@ func lex(dat []byte) []Token {
 			tokens = append(tokens, Token{IntLiteral, string(thisInt)})
 		} else if dat[i] == ' ' || dat[i] == '\t' {
 			// ignore
+		} else if bytes.Compare(dat[i:i+2], []byte{'/', '/'}) == 0 {
+			i += 2
+			for {
+				if dat[i] != '\n' {
+					i += 1
+				} else {
+					// TODO: value isn't \r\n if it was
+					tokens = append(tokens, Token{Newline, "\n"})
+					break
+				}
+			}
 		} else if dat[i] == '\n' {
 			tokens = append(tokens, Token{Newline, "\n"})
 		} else if bytes.Compare(dat[i:i+2], []byte{'\r', '\n'}) == 0 {

@@ -17,6 +17,7 @@ const (
 	IntLiteralExprNodeType
 	VarRefExprNodeType
 	FunctionNodeType
+	EnumNodeType
 )
 
 func (n NodeType) ToString() string {
@@ -39,6 +40,8 @@ func (n NodeType) ToString() string {
 		return "VarRefExpr"
 	case FunctionNodeType:
 		return "Function"
+	case EnumNodeType:
+		return "EnumNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -222,13 +225,75 @@ func parse(tokens []Token) (program Module) {
 			var fn Function
 			fn, tokens = parseFuncDecl(tokens)
 			program.Statements = append(program.Statements, fn)
+		case EnumDecl:
+			var eneom Enum
+			eneom, tokens = parseEnumDecl(tokens)
+			program.Statements = append(program.Statements, eneom)
+
 		case Newline:
 			tokens = tokens[1:]
 		default:
-			panic("unhandled token type")
+			panic(fmt.Sprintf("unhandled token type: %s", formatToken(token)))
 		}
 	}
 	return
+}
+
+func parseEnumDecl(tokens []Token) (Enum, []Token) {
+	var enum Enum
+	var thisToken Token
+
+	_, tokens = consumeToken(tokens, EnumDecl)
+	thisToken, tokens = consumeToken(tokens, Ident)
+	enum.Name = thisToken.Value
+	_, tokens = consumeToken(tokens, LCurly)
+	for len(tokens) > 0 {
+		_, tokens = consumeToken(tokens, Newline)
+		if len(tokens) > 0 && tokens[0].Type == RCurly {
+			break
+		}
+		var variant Variant
+		variant, tokens = consumeEnumVariant(tokens)
+		enum.Variants = append(enum.Variants, variant)
+		_, tokens = consumeToken(tokens, Comma)
+	}
+	_, tokens = consumeToken(tokens, RCurly)
+	return enum, tokens
+}
+
+func consumeEnumVariant(tokens []Token) (Variant, []Token) {
+	var thisToken Token
+	thisToken, tokens = consumeToken(tokens, Ident)
+	variant := Variant{Name: thisToken.Value}
+	if len(tokens) > 0 && tokens[0].Type == LParen {
+		_, tokens = consumeToken(tokens, LParen)
+		thisToken, tokens = consumeToken(tokens, Ident)
+		variant.Type = &Type{Name: thisToken.Value}
+		_, tokens = consumeToken(tokens, RParen)
+	}
+	return variant, tokens
+}
+
+type Enum struct {
+	Name     string
+	Variants []Variant
+}
+
+func (e Enum) NodeType() NodeType {
+	return EnumNodeType
+}
+
+func (e Enum) Children() []Node {
+	return []Node{} // TODO: expand on this later
+}
+
+type Type struct {
+	Name string
+}
+
+type Variant struct {
+	Name string
+	Type *Type
 }
 
 func parseFuncDecl(tokens []Token) (Function, []Token) {
