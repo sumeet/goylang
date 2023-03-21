@@ -44,10 +44,26 @@ func (d DotAccessExpr) ExprType() ExprType {
 	return DotAccessExprType
 }
 
-type Initializer struct {
-	Type Node
+type InitializerExpr struct {
+	Type Expr
 	// TODO: skipping the named params
-	Args []Node
+	Args []Expr
+}
+
+func (i InitializerExpr) Children() []Node {
+	var children []Node
+	for _, arg := range i.Args {
+		children = append(children, arg)
+	}
+	return children
+}
+
+func (i InitializerExpr) NodeType() NodeType {
+	return InitializerNodeType
+}
+
+func (i InitializerExpr) ExprType() ExprType {
+	return InitializerExprType
 }
 
 func (n NodeType) ToString() string {
@@ -99,6 +115,7 @@ const (
 	IntLiteralExprType
 	VarRefExprType
 	DotAccessExprType
+	InitializerExprType
 )
 
 type Statement interface {
@@ -422,14 +439,43 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 		return varRef, tokens
 	}
 	node, tokens := old()
+
 	if len(tokens) > 0 && tokens[0].Type == Dot {
 		_, tokens = consumeToken(tokens, Dot)
 		var thisToken Token
 		thisToken, tokens = consumeToken(tokens, Ident)
-		return DotAccessExpr{Left: node, Right: thisToken.Value}, tokens
+		node = DotAccessExpr{Left: node, Right: thisToken.Value}
+	}
+
+	if len(tokens) > 0 && tokens[0].Type == LCurly {
+		node, tokens = consumeInitializer(node, tokens)
 	}
 
 	return node, tokens
+}
+
+func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {
+	_, tokens = consumeToken(tokens, LCurly)
+	var initializer InitializerExpr
+	initializer.Type = node
+
+	if len(tokens) == 0 && tokens[0].Type == RCurly {
+		_, tokens = consumeToken(tokens, RCurly)
+		return initializer, tokens
+	}
+
+	for {
+		var expr Expr
+		expr, tokens = parseExpr(tokens)
+		initializer.Args = append(initializer.Args, expr)
+		if len(tokens) == 0 && tokens[0].Type == Comma {
+			_, tokens = consumeToken(tokens, Comma)
+		} else {
+			break
+		}
+	}
+	_, tokens = consumeToken(tokens, RCurly)
+	return initializer, tokens
 }
 
 func tryParseFuncCall(tokens []Token) (*FuncCallExpr, []Token) {

@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -19,6 +17,7 @@ func main() {
 	}
 	tokens := lex(dat)
 	module := parse(tokens)
+	//println(fmt.Sprintf("%#v\n", module))
 	s := Compile(module)
 	fmt.Println(s)
 }
@@ -31,29 +30,6 @@ func Compile(module Module) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
-}
-
-func blah(goSource string) {
-	outFile := "./output/program.go"
-	err := ioutil.WriteFile(outFile, []byte(goSource), 0644)
-	if err != nil {
-		fmt.Printf("Error writing file: %s", err.Error())
-		os.Exit(1)
-	}
-
-	cmd := exec.Command("go", "run", outFile)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// is there output?
-		if len(output) > 0 {
-			fmt.Println(string(output))
-		}
-
-		fmt.Printf("Error compiling Go source: %s", err.Error())
-		os.Exit(1)
-	}
-
-	fmt.Println(string(output))
 }
 
 func compileStatement(b *strings.Builder, s Statement) {
@@ -154,6 +130,8 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileVarRefExpr(b, e.(VarRefExpr))
 	case DotAccessExprType:
 		compileDotAccessExpr(b, e.(DotAccessExpr))
+	case InitializerExprType:
+		compileInitializerExpr(b, e.(InitializerExpr))
 	default:
 		panic(fmt.Sprintf("unknown expr type %d", e.ExprType()))
 	}
@@ -163,6 +141,34 @@ func compileDotAccessExpr(b *strings.Builder, expr DotAccessExpr) {
 	compileExpr(b, expr.Left)
 	b.WriteString(".")
 	b.WriteString(expr.Right)
+}
+
+func compileInitializerExpr(b *strings.Builder, expr InitializerExpr) {
+	compileInitializerLHS(b, expr.Type)
+	b.WriteString("{ ")
+	for i, arg := range expr.Args {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		compileExpr(b, arg)
+	}
+	b.WriteString(" }")
+}
+
+func compileInitializerLHS(b *strings.Builder, expr Expr) {
+	switch expr.ExprType() {
+	case DotAccessExprType:
+		dotAccessExpr := expr.(DotAccessExpr)
+		if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+			break
+		}
+		leftNode := dotAccessExpr.Left.(VarRefExpr)
+		rightNodeName := dotAccessExpr.Right
+
+		b.WriteString(fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName))
+		return
+	}
+	compileExpr(b, expr)
 }
 
 func compileBlock(b *strings.Builder, block Block) {
