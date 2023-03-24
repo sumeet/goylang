@@ -58,6 +58,26 @@ func compileStatement(b *strings.Builder, s Statement) {
 	return
 }
 
+func golangTypeNameWithBindingsThingTODORename(e Expr) (string, *string) {
+	switch e.ExprType() {
+	case DotAccessExprType:
+		return golangTypeNameForEnumVariant(e), nil
+	case InitializerExprType:
+		i := e.(InitializerExpr)
+		v := i.Args[0].(VarRefExpr).VarName
+		return golangTypeNameForEnumVariant(i.Type), &v
+	}
+	panic(fmt.Sprintf("unable to get golang type name for expr %#v", e))
+}
+
+func stfuUnusedVars(b *strings.Builder, varName string) {
+	b.WriteString("_ = ") // get the golang compiler to shut up about unused variable
+	b.WriteString(varName)
+	b.WriteRune('\n')
+}
+
+const BindingVarname = "binding"
+
 func compileMatch(b *strings.Builder, match MatchStmt) {
 	b.WriteString("{\n")
 	b.WriteString("matchExpr := ")
@@ -66,14 +86,22 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 
 	for i, matchArm := range match.Arms {
 		// right now it's just an enum variant, but could be other stuff that you might want to match in the future
-		golangTypeName := golangTypeNameForEnumVariant(matchArm.Pattern.Expr)
+		golangTypeName, binding := golangTypeNameWithBindingsThingTODORename(matchArm.Pattern.Expr)
 		if i == 0 {
-			b.WriteString(fmt.Sprintf("if binding, ok := matchExpr.(%s); ok {\n", golangTypeName))
+			b.WriteString(fmt.Sprintf("if %s, ok := matchExpr.(%s); ok {\n", BindingVarname, golangTypeName))
 		} else {
-			b.WriteString(fmt.Sprintf("} else if binding, ok := matchExpr.(%s); ok {\n", golangTypeName))
+			b.WriteString(fmt.Sprintf("} else if %s, ok := matchExpr.(%s); ok {\n", BindingVarname, golangTypeName))
 		}
-		b.WriteString("_ = binding\n") // get the golang compiler to shut up about unused variable
+		stfuUnusedVars(b, BindingVarname)
 
+		if binding != nil {
+			b.WriteString(*binding)
+			b.WriteString(" := ")
+			b.WriteString(BindingVarname)
+			b.WriteString(".Value")
+			b.WriteString("\n")
+			stfuUnusedVars(b, *binding)
+		}
 		compileExpr(b, matchArm.Body)
 	}
 	// TODO: but like, is an empty match even valid?
@@ -118,11 +146,6 @@ func golangEnumTagMethodName(e Enum) string {
 	return fmt.Sprintf("%sTag", e.Name)
 }
 
-// TODO: until we have a table for enums, we can just assume all things are enums
-func golangEnumTagMethodNameTemp(enumName string) string {
-	return fmt.Sprintf("%sTag", enumName)
-}
-
 func golangInterfaceName(e Enum) string {
 	return e.Name
 }
@@ -162,6 +185,8 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileDotAccessExpr(b, e.(DotAccessExpr))
 	case InitializerExprType:
 		compileInitializerExpr(b, e.(InitializerExpr))
+	case BlockExprType:
+		compileBlock(b, e.(Block))
 	default:
 		panic(fmt.Sprintf("unknown expr type %d", e.ExprType()))
 	}

@@ -118,6 +118,7 @@ const (
 	DotAccessExprType
 	InitializerExprType
 	MatchExprType
+	BlockExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -152,6 +153,10 @@ type Expr interface {
 
 type Block struct {
 	Statements []Statement
+}
+
+func (b Block) ExprType() ExprType {
+	return BlockExprType
 }
 
 func (b Block) NodeType() NodeType {
@@ -500,6 +505,10 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 		maybeMatchStmt, tokens := tryParseMatchStmt(tokens)
 		if maybeMatchStmt != nil {
 			return *maybeMatchStmt, tokens
+		}
+
+		if tokens[0].Type == LCurly {
+			return parseBlock(tokens)
 		}
 
 		// therefore, must be a var reference

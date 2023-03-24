@@ -10,9 +10,12 @@ enum Color {
 func main() {
     r := Color.Red { 123 }
     o := Color.Other {}
-    match (o) {
+    match (r) {
         Color.Other: println("Other"),
-        //Color.Red { x }: println("Red"),
+        Color.Red { x }: {
+            println("Red")
+            println(x)
+        },
     }
     println("Hello, world!") // ajiweofjiowe
 }
