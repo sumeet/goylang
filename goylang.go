@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-type X interface{}
-type A struct{}
-type B struct{}
-
 func main() {
 	dat, err := os.ReadFile("./hello.goy")
 	if err != nil {
@@ -54,10 +50,37 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileFunction(b, s.(Function))
 	case EnumNodeType:
 		compileEnum(b, s.(Enum))
+	case MatchNodeType:
+		compileMatch(b, s.(MatchStmt))
 	default:
 		panic(fmt.Sprintf("unknown node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileMatch(b *strings.Builder, match MatchStmt) {
+	b.WriteString("{\n")
+	b.WriteString("matchExpr := ")
+	compileExpr(b, match.MatchExpr)
+	b.WriteString("\n")
+
+	for i, matchArm := range match.Arms {
+		// right now it's just an enum variant, but could be other stuff that you might want to match in the future
+		golangTypeName := golangTypeNameForEnumVariant(matchArm.Pattern.Expr)
+		if i == 0 {
+			b.WriteString(fmt.Sprintf("if binding, ok := matchExpr.(%s); ok {\n", golangTypeName))
+		} else {
+			b.WriteString(fmt.Sprintf("} else if binding, ok := matchExpr.(%s); ok {\n", golangTypeName))
+		}
+		b.WriteString("_ = binding\n") // get the golang compiler to shut up about unused variable
+
+		compileExpr(b, matchArm.Body)
+	}
+	// TODO: but like, is an empty match even valid?
+	if len(match.Arms) > 0 {
+		b.WriteString("}\n") // end of if-chain
+	}
+	b.WriteString("}\n") // end of anonymous block
 }
 
 func compileEnum(b *strings.Builder, enum Enum) {
@@ -91,15 +114,22 @@ func compileIotaConstants(b *strings.Builder, enum Enum) {
 	b.WriteString(")\n")
 }
 
-//interface Token {
-//TokenType() TokenType
-//}
+func golangEnumTagMethodName(e Enum) string {
+	return fmt.Sprintf("%sTag", e.Name)
+}
 
-const IfaceMethodName = "EnumType"
+// TODO: until we have a table for enums, we can just assume all things are enums
+func golangEnumTagMethodNameTemp(enumName string) string {
+	return fmt.Sprintf("%sTag", enumName)
+}
+
+func golangInterfaceName(e Enum) string {
+	return e.Name
+}
 
 func compileEnumInterfaces(b *strings.Builder, enum Enum) {
-	b.WriteString(fmt.Sprintf("type %s interface {\n", enum.Name))
-	b.WriteString(fmt.Sprintf("%s() %s\n", IfaceMethodName, typeName(enum)))
+	b.WriteString(fmt.Sprintf("type %s interface {\n", golangInterfaceName(enum)))
+	b.WriteString(fmt.Sprintf("%s() %s\n", golangEnumTagMethodName(enum), typeName(enum)))
 	b.WriteString("}\n")
 }
 
@@ -112,7 +142,7 @@ func compileEnumStructs(b *strings.Builder, enum Enum) {
 		}
 		b.WriteString("}\n")
 
-		b.WriteString(fmt.Sprintf("func (i %s) %s() %s {\n", someName, IfaceMethodName, typeName(enum)))
+		b.WriteString(fmt.Sprintf("func (i %s) %s() %s {\n", someName, golangEnumTagMethodName(enum), typeName(enum)))
 		b.WriteString(fmt.Sprintf("return %s", enumVariantTag(enum, variant)))
 		b.WriteString("}\n")
 	}
@@ -155,7 +185,19 @@ func compileInitializerExpr(b *strings.Builder, expr InitializerExpr) {
 	b.WriteString(" }")
 }
 
-func compileInitializerLHS(b *strings.Builder, expr Expr) {
+func golangInterfaceNameForEnumVariant(expr Expr) string {
+	switch expr.ExprType() {
+	case DotAccessExprType:
+		dotAccessExpr := expr.(DotAccessExpr)
+		if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+			break
+		}
+		return dotAccessExpr.Left.(VarRefExpr).VarName
+	}
+	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
+}
+
+func golangTypeNameForEnumVariant(expr Expr) string {
 	switch expr.ExprType() {
 	case DotAccessExprType:
 		dotAccessExpr := expr.(DotAccessExpr)
@@ -164,11 +206,13 @@ func compileInitializerLHS(b *strings.Builder, expr Expr) {
 		}
 		leftNode := dotAccessExpr.Left.(VarRefExpr)
 		rightNodeName := dotAccessExpr.Right
-
-		b.WriteString(fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName))
-		return
+		return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
 	}
-	compileExpr(b, expr)
+	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
+}
+
+func compileInitializerLHS(b *strings.Builder, expr Expr) {
+	b.WriteString(golangTypeNameForEnumVariant(expr))
 }
 
 func compileBlock(b *strings.Builder, block Block) {
@@ -181,9 +225,40 @@ func compileBlock(b *strings.Builder, block Block) {
 }
 
 func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
+	b.WriteString("var ")
 	b.WriteString(stmt.VarName)
-	b.WriteString(" := ")
+	b.WriteString(" ")
+	b.WriteString(guessType(stmt.Expr))
+	b.WriteString("\n")
+
+	b.WriteString(stmt.VarName)
+	b.WriteString(" = ")
 	compileExpr(b, stmt.Expr)
+	b.WriteString("\n")
+
+	b.WriteString("_ = ")
+	b.WriteString(stmt.VarName)
+	b.WriteString("\n")
+}
+
+func guessType(expr Expr) string {
+	switch expr.ExprType() {
+	case StringLiteralExprType:
+		return "string"
+	case FuncCallExprType:
+		panic(fmt.Sprintf("can't guess type for func call %#v", expr))
+	case IntLiteralExprType:
+		return "int"
+	case VarRefExprType:
+		panic(fmt.Sprintf("can't guess type for var ref %#v", expr))
+	case DotAccessExprType:
+		panic(fmt.Sprintf("can't guess type for dot access %#v", expr))
+	case InitializerExprType:
+		init := expr.(InitializerExpr)
+		return golangInterfaceNameForEnumVariant(init.Type)
+	default:
+		panic(fmt.Sprintf("unknown expr type %d", expr.ExprType()))
+	}
 }
 
 func compileReassignmentStmt(b *strings.Builder, stmt ReassignmentStmt) {

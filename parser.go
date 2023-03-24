@@ -120,6 +120,27 @@ const (
 	MatchExprType
 )
 
+func formatExprType(t ExprType) string {
+	switch t {
+	case StringLiteralExprType:
+		return "StringLiteralExprType"
+	case FuncCallExprType:
+		return "FuncCallExprType"
+	case IntLiteralExprType:
+		return "IntLiteralExprType"
+	case VarRefExprType:
+		return "VarRefExprType"
+	case DotAccessExprType:
+		return "DotAccessExprType"
+	case InitializerExprType:
+		return "InitializerExprType"
+	case MatchExprType:
+		return "MatchExprType"
+	default:
+		panic(fmt.Sprintf("unknown expr type %d", t))
+	}
+}
+
 type Statement interface {
 	Node
 }
@@ -214,7 +235,7 @@ type MatchArm struct {
 	//
 	// for now, we'll have this always be an EnumPattern
 	Pattern EnumPattern
-	Body    Block
+	Body    Expr
 }
 
 func (ma MatchArm) Children() []Node {
@@ -226,7 +247,7 @@ func (ma MatchArm) NodeType() NodeType {
 }
 
 type EnumPattern struct {
-	EnumName string
+	Expr Expr
 }
 
 type ReassignmentStmt struct {
@@ -514,9 +535,25 @@ func tryParseMatchStmt(tokens []Token) (*MatchStmt, []Token) {
 	matchStmt.MatchExpr, tokens = parseExpr(tokens)
 	_, tokens = consumeToken(tokens, RParen)
 	_, tokens = consumeToken(tokens, LCurly)
-	_, tokens = consumeToken(tokens, Newline)
+
+	// this is where the variants go
+	for !peekToken(tokens, RCurly) {
+		var arm MatchArm
+		arm.Pattern, tokens = parsePattern(tokens)
+		_, tokens = consumeToken(tokens, Colon)
+		arm.Body, tokens = parseExpr(tokens)
+		_, tokens = consumeToken(tokens, Comma)
+		matchStmt.Arms = append(matchStmt.Arms, arm)
+	}
+
 	_, tokens = consumeToken(tokens, RCurly)
 	return &matchStmt, tokens
+}
+
+func parsePattern(tokens []Token) (EnumPattern, []Token) {
+	var pattern EnumPattern
+	pattern.Expr, tokens = parseExpr(tokens)
+	return pattern, tokens
 }
 
 func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {

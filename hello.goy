@@ -12,7 +12,7 @@ func main() {
     o := Color.Other {}
     match (o) {
         Color.Other: println("Other"),
+        //Color.Red { x }: println("Red"),
     }
     println("Hello, world!") // ajiweofjiowe
-    println(r.Value)
 }
