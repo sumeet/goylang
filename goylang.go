@@ -95,11 +95,15 @@ func compileStruct(b *strings.Builder, strukt Struct) {
 func golangTypeNameWithBindingsThingTODORename(e Expr) (string, *string) {
 	switch e.ExprType() {
 	case DotAccessExprType:
-		return golangTypeNameForEnumVariant(e), nil
+		var s strings.Builder
+		compileInitializerLHS(&s, e)
+		return s.String(), nil
 	case InitializerExprType:
 		i := e.(InitializerExpr)
 		v := i.Args[0].(VarRefExpr).VarName
-		return golangTypeNameForEnumVariant(i.Type), &v
+		var s strings.Builder
+		compileInitializerLHS(&s, i.Type)
+		return s.String(), &v
 	}
 	panic(fmt.Sprintf("unable to get golang type name for expr %#v", e))
 }
@@ -256,7 +260,7 @@ func golangInterfaceNameForEnumVariant(expr Expr) string {
 	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
 }
 
-func golangTypeNameForEnumVariant(expr Expr) string {
+func compileInitializerLHS(b *strings.Builder, expr Expr) {
 	switch expr.ExprType() {
 	case DotAccessExprType:
 		dotAccessExpr := expr.(DotAccessExpr)
@@ -265,13 +269,15 @@ func golangTypeNameForEnumVariant(expr Expr) string {
 		}
 		leftNode := dotAccessExpr.Left.(VarRefExpr)
 		rightNodeName := dotAccessExpr.Right
-		return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
+		b.WriteString(leftNode.VarName)
+		b.WriteString(rightNodeName)
+	case SliceExprType:
+		slice := expr.(SliceType)
+		b.WriteString("[]")
+		b.WriteString(slice.Ident)
+	default:
+		panic(fmt.Sprintf("unknown initializer LHS type %#v", expr))
 	}
-	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
-}
-
-func compileInitializerLHS(b *strings.Builder, expr Expr) {
-	b.WriteString(golangTypeNameForEnumVariant(expr))
 }
 
 func compileBlock(b *strings.Builder, block Block) {
@@ -323,14 +329,24 @@ func guessType(expr Expr) string {
 		return "int"
 	case VarRefExprType:
 		panic(fmt.Sprintf("can't guess type for var ref %#v", expr))
-	case DotAccessExprType:
-		panic(fmt.Sprintf("can't guess type for dot access %#v", expr))
 	case InitializerExprType:
 		init := expr.(InitializerExpr)
-		return golangInterfaceNameForEnumVariant(init.Type)
-	default:
-		panic(fmt.Sprintf("unknown expr type %d", expr.ExprType()))
+		if slice, ok := init.Type.(SliceType); ok {
+			return fmt.Sprintf("[]%s", slice.Ident)
+		} else {
+			return golangInterfaceNameForEnumVariant(init.Type)
+		}
+		//case DotAccessExprType:
+		//	dotAccessExpr := expr.(DotAccessExpr)
+		//	if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+		//		break
+		//	}
+		//	leftNode := dotAccessExpr.Left.(VarRefExpr)
+		//	rightNodeName := dotAccessExpr.Right
+		//	return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
+
 	}
+	panic(fmt.Sprintf("can't guess type for expr: %#v", expr))
 }
 
 func compileReassignmentStmt(b *strings.Builder, stmt ReassignmentStmt) {

@@ -25,4 +25,5 @@ struct Token {
 
 func main() {
 	dat := readfile("lexer.goy")
+	tokens := []Token{}
 }

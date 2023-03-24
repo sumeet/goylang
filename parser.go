@@ -122,6 +122,7 @@ const (
 	InitializerExprType
 	MatchExprType
 	BlockExprType
+	SliceExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -555,6 +556,10 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 			return parseBlock(tokens)
 		}
 
+		if tokens[0].Type == LBracket {
+			return parseSliceType(tokens)
+		}
+
 		// therefore, must be a var reference
 		thisToken, tokens = consumeToken(tokens, Ident)
 		varRef.VarName = thisToken.Value
@@ -581,6 +586,34 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	}
 
 	return node, tokens
+}
+
+type SliceType struct {
+	Ident string
+}
+
+func (s SliceType) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s SliceType) NodeType() NodeType {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s SliceType) ExprType() ExprType {
+	return SliceExprType
+}
+
+func parseSliceType(tokens []Token) (SliceType, []Token) {
+	var sliceType SliceType
+	var thisToken Token
+	_, tokens = consumeToken(tokens, LBracket)
+	_, tokens = consumeToken(tokens, RBracket)
+	thisToken, tokens = consumeToken(tokens, Ident)
+	sliceType.Ident = thisToken.Value
+	return sliceType, tokens
 }
 
 func tryParseMatchStmt(tokens []Token) (*MatchStmt, []Token) {

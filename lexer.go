@@ -26,6 +26,8 @@ const (
 	Match
 	Dot
 	Colon
+	LBracket
+	RBracket
 )
 
 func formatToken(t Token) string {
@@ -66,6 +68,10 @@ func formatToken(t Token) string {
 		return "Colon"
 	case StringLiteral:
 		return fmt.Sprintf("StringLiteral(%s)", t.Value)
+	case LBracket:
+		return "LBracket"
+	case RBracket:
+		return "RBracket"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t.Type))
 	}
@@ -109,6 +115,10 @@ func formatTokenType(t TokenType) string {
 		return "Dot"
 	case Colon:
 		return "Colon"
+	case LBracket:
+		return "LBracket"
+	case RBracket:
+		return "RBracket"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t))
 	}
@@ -190,6 +200,10 @@ func lex(dat []byte) []Token {
 			tokens = append(tokens, Token{LCurly, string([]byte{dat[i]})})
 		} else if dat[i] == '}' {
 			tokens = append(tokens, Token{RCurly, string([]byte{dat[i]})})
+		} else if dat[i] == '[' {
+			tokens = append(tokens, Token{LBracket, string([]byte{dat[i]})})
+		} else if dat[i] == ']' {
+			tokens = append(tokens, Token{RBracket, string([]byte{dat[i]})})
 		} else if bytes.Compare(dat[i:i+2], []byte{':', '='}) == 0 {
 			tokens = append(tokens, Token{Assignment, string([]byte{dat[i]})})
 			i += 1
