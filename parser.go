@@ -22,6 +22,7 @@ const (
 	// fields, methods // type level, so variants
 	InitializerNodeType
 	DotAccessNodeType
+	MatchArmNodeType
 )
 
 // Blah.Foo.Far
@@ -116,6 +117,7 @@ const (
 	VarRefExprType
 	DotAccessExprType
 	InitializerExprType
+	MatchExprType
 )
 
 type Statement interface {
@@ -183,6 +185,48 @@ func (a AssignmentStmt) NodeType() NodeType {
 
 func (a AssignmentStmt) Children() []Node {
 	return []Node{a.Expr}
+}
+
+type MatchStmt struct {
+	MatchExpr Expr
+	Arms      []MatchArm
+}
+
+func (ms MatchStmt) Children() []Node {
+	var children []Node
+	for _, arm := range ms.Arms {
+		children = append(children, arm)
+	}
+	return children
+}
+
+func (ms MatchStmt) ExprType() ExprType {
+	return MatchExprType
+}
+
+func (ms MatchStmt) NodeType() NodeType {
+	return MatchNodeType
+}
+
+type MatchArm struct {
+	// TODO: when we have a less annoying language to program this in,
+	// Pattern should be an enum with different variants
+	//
+	// for now, we'll have this always be an EnumPattern
+	Pattern EnumPattern
+	Body    Block
+}
+
+func (ma MatchArm) Children() []Node {
+	return []Node{ma.Body}
+}
+
+func (ma MatchArm) NodeType() NodeType {
+	return MatchArmNodeType
+}
+
+type EnumPattern struct {
+	EnumName string
 }
 
 type ReassignmentStmt struct {
@@ -432,6 +476,10 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 		if maybeIntLiteral != nil {
 			return *maybeIntLiteral, tokens
 		}
+		maybeMatchStmt, tokens := tryParseMatchStmt(tokens)
+		if maybeMatchStmt != nil {
+			return *maybeMatchStmt, tokens
+		}
 
 		// therefore, must be a var reference
 		thisToken, tokens = consumeToken(tokens, Ident)
@@ -440,6 +488,7 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	}
 	node, tokens := old()
 
+	// handle period
 	if len(tokens) > 0 && tokens[0].Type == Dot {
 		_, tokens = consumeToken(tokens, Dot)
 		var thisToken Token
@@ -447,6 +496,7 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 		node = DotAccessExpr{Left: node, Right: thisToken.Value}
 	}
 
+	// handle initializer
 	if len(tokens) > 0 && tokens[0].Type == LCurly {
 		node, tokens = consumeInitializer(node, tokens)
 	}
@@ -454,12 +504,27 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	return node, tokens
 }
 
+func tryParseMatchStmt(tokens []Token) (*MatchStmt, []Token) {
+	if tokens[0].Type != Match {
+		return nil, tokens
+	}
+	_, tokens = consumeToken(tokens, Match)
+	_, tokens = consumeToken(tokens, LParen)
+	var matchStmt MatchStmt
+	matchStmt.MatchExpr, tokens = parseExpr(tokens)
+	_, tokens = consumeToken(tokens, RParen)
+	_, tokens = consumeToken(tokens, LCurly)
+	_, tokens = consumeToken(tokens, Newline)
+	_, tokens = consumeToken(tokens, RCurly)
+	return &matchStmt, tokens
+}
+
 func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {
 	_, tokens = consumeToken(tokens, LCurly)
 	var initializer InitializerExpr
 	initializer.Type = node
 
-	if len(tokens) == 0 && tokens[0].Type == RCurly {
+	if peekToken(tokens, RCurly) {
 		_, tokens = consumeToken(tokens, RCurly)
 		return initializer, tokens
 	}
@@ -468,7 +533,7 @@ func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {
 		var expr Expr
 		expr, tokens = parseExpr(tokens)
 		initializer.Args = append(initializer.Args, expr)
-		if len(tokens) == 0 && tokens[0].Type == Comma {
+		if len(tokens) > 0 && tokens[0].Type == Comma {
 			_, tokens = consumeToken(tokens, Comma)
 		} else {
 			break
@@ -529,9 +594,29 @@ func parseFunctionCall(tokens []Token) (FuncCallExpr, []Token) {
 	return funcCall, tokens
 }
 
+func peekToken(tokens []Token, expectedType TokenType) bool {
+	if len(tokens) == 0 {
+		panic("Unexpected end of input")
+	}
+	if expectedType != Newline {
+		tokens = skipNewlines(tokens)
+	}
+	return tokens[0].Type == expectedType
+}
+
+func skipNewlines(tokens []Token) []Token {
+	for tokens[0].Type == Newline {
+		tokens = tokens[1:]
+	}
+	return tokens
+}
+
 func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
 	if len(tokens) == 0 {
 		panic("Unexpected end of input")
+	}
+	if expectedType != Newline {
+		tokens = skipNewlines(tokens)
 	}
 	token := tokens[0]
 	if token.Type != expectedType {
