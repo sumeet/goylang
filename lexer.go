@@ -9,6 +9,7 @@ type TokenType uint8
 
 const (
 	FuncDecl TokenType = iota
+	StructDecl
 	LParen
 	RParen
 	LCurly
@@ -31,6 +32,8 @@ func formatToken(t Token) string {
 	switch t.Type {
 	case FuncDecl:
 		return "FuncDecl"
+	case StructDecl:
+		return "Struct"
 	case EnumDecl:
 		return "Enum"
 	case Match:
@@ -72,6 +75,8 @@ func formatTokenType(t TokenType) string {
 	switch t {
 	case FuncDecl:
 		return "FuncDecl"
+	case StructDecl:
+		return "StructDecl"
 	case EnumDecl:
 		return "EnumDecl"
 	case Match:
@@ -144,6 +149,8 @@ func lex(dat []byte) []Token {
 				tokens = append(tokens, Token{FuncDecl, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("enum")) == 0 {
 				tokens = append(tokens, Token{EnumDecl, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("struct")) == 0 {
+				tokens = append(tokens, Token{StructDecl, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("match")) == 0 {
 				tokens = append(tokens, Token{Match, string(thisIdent)})
 			} else {

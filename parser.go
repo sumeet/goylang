@@ -23,6 +23,7 @@ const (
 	InitializerNodeType
 	DotAccessNodeType
 	MatchArmNodeType
+	StructNodeType
 )
 
 // Blah.Foo.Far
@@ -91,6 +92,8 @@ func (n NodeType) ToString() string {
 		return "EnumNodeType"
 	case MatchNodeType:
 		return "MatchNodeType"
+	case StructNodeType:
+		return "StructNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -269,8 +272,8 @@ func (r ReassignmentStmt) NodeType() NodeType {
 }
 
 type FuncCallExpr struct {
-	FuncName string
-	Args     []Expr
+	Expr Expr
+	Args []Expr
 }
 
 func (f FuncCallExpr) Children() []Node {
@@ -337,6 +340,26 @@ func (v VarRefExpr) ExprType() ExprType {
 	return VarRefExprType
 }
 
+type Struct struct {
+	Name   string
+	Fields []StructField
+}
+
+func (s Struct) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s Struct) NodeType() NodeType {
+	//TODO implement me
+	return StructNodeType
+}
+
+type StructField struct {
+	Name string
+	Type string
+}
+
 func parse(tokens []Token) (program Module) {
 	for len(tokens) > 0 {
 		token := tokens[0]
@@ -349,7 +372,10 @@ func parse(tokens []Token) (program Module) {
 			var eneom Enum
 			eneom, tokens = parseEnumDecl(tokens)
 			program.Statements = append(program.Statements, eneom)
-
+		case StructDecl:
+			var strukt Struct
+			strukt, tokens = parseStructDecl(tokens)
+			program.Statements = append(program.Statements, strukt)
 		case Newline:
 			tokens = tokens[1:]
 		default:
@@ -357,6 +383,32 @@ func parse(tokens []Token) (program Module) {
 		}
 	}
 	return
+}
+
+func parseStructDecl(tokens []Token) (Struct, []Token) {
+	var strukt Struct
+	var thisToken Token
+	_, tokens = consumeToken(tokens, StructDecl)
+	thisToken, tokens = consumeToken(tokens, Ident)
+	strukt.Name = thisToken.Value
+
+	var field StructField
+	_, tokens = consumeToken(tokens, LCurly)
+	for len(tokens) > 0 {
+		if peekToken(tokens, RCurly) {
+			break
+		}
+
+		thisToken, tokens = consumeToken(tokens, Ident)
+		field.Name = thisToken.Value
+		thisToken, tokens = consumeToken(tokens, Ident)
+		field.Type = thisToken.Value
+
+		strukt.Fields = append(strukt.Fields, field)
+		_, tokens = consumeToken(tokens, Comma)
+	}
+	_, tokens = consumeToken(tokens, RCurly)
+	return strukt, tokens
 }
 
 func parseEnumDecl(tokens []Token) (Enum, []Token) {
@@ -388,7 +440,8 @@ func consumeEnumVariant(tokens []Token) (Variant, []Token) {
 	if len(tokens) > 0 && tokens[0].Type == LParen {
 		_, tokens = consumeToken(tokens, LParen)
 		thisToken, tokens = consumeToken(tokens, Ident)
-		variant.Type = &Type{Name: thisToken.Value}
+		//variant.Type = &Type{Name: thisToken.Value}
+		variant.Type = &thisToken.Value
 		_, tokens = consumeToken(tokens, RParen)
 	}
 	return variant, tokens
@@ -407,13 +460,9 @@ func (e Enum) Children() []Node {
 	return []Node{} // TODO: expand on this later
 }
 
-type Type struct {
-	Name string
-}
-
 type Variant struct {
 	Name string
-	Type *Type
+	Type *string
 }
 
 func parseFuncDecl(tokens []Token) (Function, []Token) {
@@ -481,7 +530,6 @@ func parseAssignment(tokens []Token) (AssignmentStmt, []Token) {
 
 func parseExpr(tokens []Token) (Expr, []Token) {
 	old := func() (Expr, []Token) {
-		var maybeFuncCall *FuncCallExpr
 		var maybeIntLiteral *IntLiteralExpr
 		var varRef VarRefExpr
 		var thisToken Token
@@ -494,10 +542,6 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 			}
 		}
 
-		maybeFuncCall, tokens = tryParseFuncCall(tokens)
-		if maybeFuncCall != nil {
-			return *maybeFuncCall, tokens
-		}
 		maybeIntLiteral, tokens = tryParseIntLiteral(tokens)
 		if maybeIntLiteral != nil {
 			return *maybeIntLiteral, tokens
@@ -529,6 +573,11 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	// handle initializer
 	if len(tokens) > 0 && tokens[0].Type == LCurly {
 		node, tokens = consumeInitializer(node, tokens)
+	}
+
+	// handle function calls
+	if len(tokens) > 0 && tokens[0].Type == LParen {
+		node, tokens = consumeFuncCall(node, tokens)
 	}
 
 	return node, tokens
@@ -589,16 +638,6 @@ func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {
 	return initializer, tokens
 }
 
-func tryParseFuncCall(tokens []Token) (*FuncCallExpr, []Token) {
-	if tokens[0].Type == Ident && tokens[1].Type == LParen {
-		var funcCall FuncCallExpr
-		funcCall, tokens = parseFunctionCall(tokens)
-		return &funcCall, tokens
-	} else {
-		return nil, tokens
-	}
-}
-
 func tryParseIntLiteral(tokens []Token) (*IntLiteralExpr, []Token) {
 	var thisToken Token
 	var intLiteral IntLiteralExpr
@@ -616,16 +655,20 @@ func tryParseIntLiteral(tokens []Token) (*IntLiteralExpr, []Token) {
 }
 
 func parseReassignment(tokens []Token) (ReassignmentStmt, []Token) {
-	return ReassignmentStmt{}, tokens
+	var stmt ReassignmentStmt
+	var thisToken Token
+	thisToken, tokens = consumeToken(tokens, Ident)
+	stmt.VarName = thisToken.Value
+	_, tokens = consumeToken(tokens, Reassignment)
+	stmt.Expr, tokens = parseExpr(tokens)
+	return stmt, tokens
 }
 
-func parseFunctionCall(tokens []Token) (FuncCallExpr, []Token) {
+func consumeFuncCall(expr Expr, tokens []Token) (FuncCallExpr, []Token) {
 	var funcCall FuncCallExpr
-	var thisToken Token
 	var thisExpr Expr
 
-	thisToken, tokens = consumeToken(tokens, Ident)
-	funcCall.FuncName = thisToken.Value
+	funcCall.Expr = expr
 	_, tokens = consumeToken(tokens, LParen)
 	for true {
 		thisExpr, tokens = parseExpr(tokens)

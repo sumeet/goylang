@@ -1,0 +1,28 @@
+enum TokenType {
+	FuncDecl,
+	LParen,
+	RParen,
+	LCurly,
+	RCurly,
+	Ident,
+	IntLiteral,
+	Assignment,
+	Reassignment,
+	BinaryOp,
+	Newline,
+	Comma,
+	StringLiteral,
+	EnumDecl,
+	Match,
+	Dot,
+	Colon,
+}
+
+struct Token {
+	TokenType TokenType,
+	Value     string,
+}
+
+func main() {
+	dat := readfile("lexer.goy")
+}

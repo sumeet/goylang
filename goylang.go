@@ -7,7 +7,8 @@ import (
 )
 
 func main() {
-	dat, err := os.ReadFile("./hello.goy")
+	fname := os.Args[1]
+	dat, err := os.ReadFile(fname)
 	if err != nil {
 		panic(err)
 	}
@@ -18,9 +19,26 @@ func main() {
 	fmt.Println(s)
 }
 
+func prelude() string {
+	return `package main
+
+import (
+	"os"
+)
+
+func readfile(fname string) []byte {
+	dat, err := os.ReadFile(fname)
+	if err != nil {
+		panic(err)
+	}
+	return dat
+}`
+}
+
 func Compile(module Module) string {
 	var b strings.Builder
-	b.WriteString("package main\n\n")
+	b.WriteString(prelude())
+	b.WriteString("\n\n")
 	for _, statement := range module.Statements {
 		compileStatement(&b, statement)
 		b.WriteByte('\n')
@@ -52,10 +70,26 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileEnum(b, s.(Enum))
 	case MatchNodeType:
 		compileMatch(b, s.(MatchStmt))
+	case StructNodeType:
+		compileStruct(b, s.(Struct))
 	default:
 		panic(fmt.Sprintf("unknown node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileStruct(b *strings.Builder, strukt Struct) {
+	b.WriteString("type ")
+	b.WriteString(strukt.Name)
+	b.WriteString(" struct {\n")
+	for _, field := range strukt.Fields {
+		b.WriteString(field.Name)
+		b.WriteString(" ")
+		b.WriteString(field.Type)
+		b.WriteString("\n")
+
+	}
+	b.WriteString("}\n")
 }
 
 func golangTypeNameWithBindingsThingTODORename(e Expr) (string, *string) {
@@ -161,7 +195,7 @@ func compileEnumStructs(b *strings.Builder, enum Enum) {
 		someName := fmt.Sprintf("%s%s", enum.Name, variant.Name)
 		b.WriteString(fmt.Sprintf("type %s struct {\n", someName))
 		if variant.Type != nil {
-			b.WriteString(fmt.Sprintf("Value %s", variant.Type.Name))
+			b.WriteString(fmt.Sprintf("Value %s", *variant.Type))
 		}
 		b.WriteString("}\n")
 
@@ -266,12 +300,25 @@ func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
 	b.WriteString("\n")
 }
 
+func getTypeForFuncCall(ident string) string {
+	if ident == "readfile" {
+		return "[]byte"
+	} else {
+		panic(fmt.Sprintf("don't know type of func call %s", ident))
+	}
+}
+
 func guessType(expr Expr) string {
 	switch expr.ExprType() {
 	case StringLiteralExprType:
 		return "string"
 	case FuncCallExprType:
-		panic(fmt.Sprintf("can't guess type for func call %#v", expr))
+		funcCall := expr.(FuncCallExpr)
+		varRef, ok := funcCall.Expr.(VarRefExpr)
+		if !ok {
+			panic(fmt.Sprintf("expected var ref expr for func call %#v", funcCall))
+		}
+		return getTypeForFuncCall(varRef.VarName)
 	case IntLiteralExprType:
 		return "int"
 	case VarRefExprType:
@@ -296,10 +343,10 @@ func compileStringLiteralExpr(b *strings.Builder, expr StringLiteralExpr) {
 	b.WriteString(fmt.Sprintf("%q", expr.Value))
 }
 
-func compileFuncCallExpr(b *strings.Builder, expr FuncCallExpr) {
-	b.WriteString(expr.FuncName)
+func compileFuncCallExpr(b *strings.Builder, funcCall FuncCallExpr) {
+	compileExpr(b, funcCall.Expr)
 	b.WriteString("(")
-	for i, arg := range expr.Args {
+	for i, arg := range funcCall.Args {
 		if i != 0 {
 			b.WriteString(", ")
 		}
