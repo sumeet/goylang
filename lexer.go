@@ -28,6 +28,11 @@ const (
 	Colon
 	LBracket
 	RBracket
+	While
+	Break
+	Continue
+	If
+	Else
 )
 
 func formatToken(t Token) string {
@@ -72,6 +77,17 @@ func formatToken(t Token) string {
 		return "LBracket"
 	case RBracket:
 		return "RBracket"
+	case While:
+		return "While"
+	case Break:
+		return "Break"
+	case Continue:
+		return "Continue"
+	case If:
+		return "If"
+	case Else:
+		return "Else"
+
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t.Type))
 	}
@@ -119,6 +135,16 @@ func formatTokenType(t TokenType) string {
 		return "LBracket"
 	case RBracket:
 		return "RBracket"
+	case While:
+		return "While"
+	case Break:
+		return "Break"
+	case Continue:
+		return "Continue"
+	case If:
+		return "If"
+	case Else:
+		return "Else"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t))
 	}
@@ -163,6 +189,16 @@ func lex(dat []byte) []Token {
 				tokens = append(tokens, Token{StructDecl, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("match")) == 0 {
 				tokens = append(tokens, Token{Match, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("while")) == 0 {
+				tokens = append(tokens, Token{While, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("if")) == 0 {
+				tokens = append(tokens, Token{If, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("else")) == 0 {
+				tokens = append(tokens, Token{Else, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("break")) == 0 {
+				tokens = append(tokens, Token{Break, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("continue")) == 0 {
+				tokens = append(tokens, Token{Continue, string(thisIdent)})
 			} else {
 				tokens = append(tokens, Token{Ident, string(thisIdent)})
 			}

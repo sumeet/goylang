@@ -13,6 +13,7 @@ func main() {
 		panic(err)
 	}
 	tokens := lex(dat)
+	println(fmt.Sprintf("%#v\n", tokens))
 	module := parse(tokens)
 	//println(fmt.Sprintf("%#v\n", module))
 	s := Compile(module)
@@ -32,7 +33,45 @@ func readfile(fname string) []byte {
 		panic(err)
 	}
 	return dat
-}`
+}
+
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+func isAlpha(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+func add(n, m int) int {
+	return n + m
+}
+
+func g[T any](slice []T, i int) T {
+	return slice[i]
+}
+
+func eq[T any](x, y T) bool {
+	return x == y
+}
+
+func or[T any](bs ...bool) bool {
+	for _, b := range bs {
+		if b {	
+			return true	
+		}	
+	}
+	return false
+}
+
+func c(s string) byte {
+	return s[0]
+}
+
+func nt(bs []byte, s string) bool {
+	return bs[0] == s[0]
+}
+`
 }
 
 func Compile(module Module) string {
@@ -72,10 +111,29 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileMatch(b, s.(MatchStmt))
 	case StructNodeType:
 		compileStruct(b, s.(Struct))
+	case WhileNodeType:
+		compileWhile(b, s.(WhileExpr))
+	case BreakNodeType:
+		compileBreak(b, s.(BreakExpr))
+	case ContinueNodeType:
+		compileContinue(b, s.(ContinueExpr))
 	default:
 		panic(fmt.Sprintf("unknown node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileBreak(b *strings.Builder, be BreakExpr) {
+	b.WriteString("break")
+}
+
+func compileContinue(b *strings.Builder, ce ContinueExpr) {
+	b.WriteString("continue")
+}
+
+func compileWhile(b *strings.Builder, expr WhileExpr) {
+	b.WriteString("for ")
+	compileExpr(b, expr.Body)
 }
 
 func compileStruct(b *strings.Builder, strukt Struct) {
@@ -225,8 +283,10 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileInitializerExpr(b, e.(InitializerExpr))
 	case BlockExprType:
 		compileBlock(b, e.(Block))
+	case WhileExprType:
+		compileWhile(b, e.(WhileExpr))
 	default:
-		panic(fmt.Sprintf("unknown expr type %d", e.ExprType()))
+		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}
 }
 

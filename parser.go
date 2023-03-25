@@ -24,6 +24,10 @@ const (
 	DotAccessNodeType
 	MatchArmNodeType
 	StructNodeType
+	WhileNodeType
+	BreakNodeType
+	ContinueNodeType
+	IfNodeType
 )
 
 // Blah.Foo.Far
@@ -94,6 +98,12 @@ func (n NodeType) ToString() string {
 		return "MatchNodeType"
 	case StructNodeType:
 		return "StructNodeType"
+	case WhileNodeType:
+		return "WhileNodeType"
+	case BreakNodeType:
+		return "BreakNodeType"
+	case ContinueNodeType:
+		return "ContinueNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -123,6 +133,10 @@ const (
 	MatchExprType
 	BlockExprType
 	SliceExprType
+	WhileExprType
+	BreakExprType
+	ContinueExprType
+	IfExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -141,6 +155,12 @@ func formatExprType(t ExprType) string {
 		return "InitializerExprType"
 	case MatchExprType:
 		return "MatchExprType"
+	case BreakExprType:
+		return "BreakExprType"
+	case ContinueExprType:
+		return "ContinueExprType"
+	case WhileExprType:
+		return "WhileExprType"
 	default:
 		panic(fmt.Sprintf("unknown expr type %d", t))
 	}
@@ -560,6 +580,22 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 			return parseSliceType(tokens)
 		}
 
+		if tokens[0].Type == While {
+			return parseWhile(tokens)
+		}
+
+		if tokens[0].Type == Break {
+			return parseBreak(tokens)
+		}
+
+		if tokens[0].Type == Continue {
+			return parseContinue(tokens)
+		}
+
+		if tokens[0].Type == If {
+			return parseIf(tokens)
+		}
+
 		// therefore, must be a var reference
 		thisToken, tokens = consumeToken(tokens, Ident)
 		varRef.VarName = thisToken.Value
@@ -586,6 +622,105 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	}
 
 	return node, tokens
+}
+
+type IfExpr struct {
+	Cond     Expr
+	IfBody   Expr
+	ElseBody *Expr
+}
+
+func (i IfExpr) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (i IfExpr) NodeType() NodeType {
+	return IfNodeType
+}
+
+func (i IfExpr) ExprType() ExprType {
+	return IfExprType
+}
+
+func parseIf(tokens []Token) (IfExpr, []Token) {
+	_, tokens = consumeToken(tokens, If)
+	var ifExpr IfExpr
+	ifExpr.Cond, tokens = parseExpr(tokens)
+	ifExpr.IfBody, tokens = parseExpr(tokens)
+	if peekToken(tokens, Else) {
+		_, tokens = consumeToken(tokens, Else)
+		var elseBody Expr
+		elseBody, tokens = parseExpr(tokens)
+		ifExpr.ElseBody = &elseBody
+	}
+	return ifExpr, tokens
+}
+
+type BreakExpr struct {
+}
+
+func (b BreakExpr) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (b BreakExpr) NodeType() NodeType {
+	return BreakNodeType
+}
+
+func (b BreakExpr) ExprType() ExprType {
+	return BreakExprType
+}
+
+func parseBreak(tokens []Token) (BreakExpr, []Token) {
+	_, tokens = consumeToken(tokens, Break)
+	return BreakExpr{}, tokens
+}
+
+type ContinueExpr struct {
+}
+
+func (b ContinueExpr) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (c ContinueExpr) NodeType() NodeType {
+	return ContinueNodeType
+}
+
+func (c ContinueExpr) ExprType() ExprType {
+	return ContinueExprType
+}
+
+func parseContinue(tokens []Token) (ContinueExpr, []Token) {
+	_, tokens = consumeToken(tokens, Continue)
+	return ContinueExpr{}, tokens
+}
+
+type WhileExpr struct {
+	Body Expr
+}
+
+func (w WhileExpr) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (w WhileExpr) NodeType() NodeType {
+	return WhileNodeType
+}
+
+func (w WhileExpr) ExprType() ExprType {
+	return WhileExprType
+}
+
+func parseWhile(tokens []Token) (WhileExpr, []Token) {
+	_, tokens = consumeToken(tokens, While)
+	var w WhileExpr
+	w.Body, tokens = parseExpr(tokens)
+	return w, tokens
 }
 
 type SliceType struct {
