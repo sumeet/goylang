@@ -254,9 +254,12 @@ func lex(dat []byte) []Token {
 		} else if dat[i] == '"' {
 			thisStringLit := []byte{dat[i]}
 			i += 1
-			// TODO: this doesn't handle an escaped "
 			for dat[i] != '"' {
+				// handle an escaped "
 				if dat[i] == '\\' && dat[i+1] == '"' {
+					thisStringLit = append(thisStringLit, dat[i], dat[i+1])
+					i += 2
+				} else if dat[i] == '\\' && dat[i+1] == '\\' {
 					thisStringLit = append(thisStringLit, dat[i], dat[i+1])
 					i += 2
 				} else {

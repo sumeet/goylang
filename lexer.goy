@@ -39,6 +39,15 @@ func main() {
 		} else if or(nc(dat, i, " "), nc(dat, i, "\t"))  {
 			i = add(i, 1)
 			continue
+		} else if nc(dat, i, "//") {
+			while {
+				if nc(dat, i, "\n") {
+					tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
+					break
+				} else {
+					i = add(i, 1)
+				}
+			}
 		} else if isAlpha(g(dat, i)) {
 			ident := []byte{}
 			while {
@@ -92,27 +101,36 @@ func main() {
 			i = add(i, 2)
 		} else if nc(dat, i, ",") {
 			tokens = append(tokens, Token{TokenType.Comma{}, ","})
-			i = add(i, i)
+			i = add(i, 1)
 		} else if nc(dat, i, ":=") {
 			tokens = append(tokens, Token{TokenType.Reassignment{}, ":="})
 			i = add(i, 2)
 		} else if nc(dat, i, ":") {
 			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
-			i = add(i, i)
+			i = add(i, 1)
 		} else if nc(dat, i, "=") {
 			tokens = append(tokens, Token{TokenType.Assignment{}, "="})
-			i = add(i, i)
-		//} else if nc(dat, i, "\"") {
-		//	str := bs("\"")
-		//	while {
-		//		str = append(str, g(dat, i))
-		//		i = add(i, 1)
-		//		if nc(dat, i, "\"") {
-		//			break
-		//		}
-		//	}
-		//	tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
-		//	i = add(i, len(str))
+			i = add(i, 1)
+		} else if nc(dat, i, ".") {
+			tokens = append(tokens, Token{TokenType.Dot{}, "."})
+			i = add(i, 1)
+		} else if nc(dat, i, "\"") {
+			str := bs("\"")
+			i = add(i, 1)
+			while {
+				if nc(dat, i, "\"") {
+					str = append(str, g(dat, i))
+					i = add(i, 1)
+					break
+				} else if nc(dat, i, "\\\"") {
+					str = append(str, g(dat, i), g(dat, add(i, 1)))
+					i = add(i, 2)
+				} else {
+					str = append(str, g(dat, i))
+					i = add(i, 1)
+				}
+			}
+			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
 		} else {
 			panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
 		}
