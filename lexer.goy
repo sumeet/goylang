@@ -4,6 +4,8 @@ enum TokenType {
 	RParen,
 	LCurly,
 	RCurly,
+	LBracket,
+	RBracket,
 	Ident,
 	IntLiteral,
 	Assignment,
@@ -28,9 +30,11 @@ func main() {
 	tokens := []Token{}
 	i := 0
 	while {
-		if or(nc(dat, i, " "), nc(dat, i, "\t"))  {
-		i = add(i, 1)
-		continue
+		if ge(i, len(dat)) {
+			break
+		} else if or(nc(dat, i, " "), nc(dat, i, "\t"))  {
+			i = add(i, 1)
+			continue
 		} else if isAlpha(g(dat, i)) {
 			ident := []byte{}
 			while {
@@ -47,8 +51,61 @@ func main() {
 				}
 			}
 			continue
+		} else if isDigit(g(dat, i)) {
+		  n := []byte{}
+		  while {
+			if isDigit(g(dat, i)) {
+				n = append(n, g(dat, i))
+				i = add(i, 1)
+			} else {
+			  tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
+			  break
+			}
+		  }
+		} else if nc(dat, i, "{") {
+			tokens = append(tokens, Token{TokenType.LCurly{}, "{"})
+			i = add(i, 1)
+		} else if nc(dat, i, "}") {
+			tokens = append(tokens, Token{TokenType.RCurly{}, "}"})
+			i = add(i, 1)
+		} else if nc(dat, i, "[") {
+			tokens = append(tokens, Token{TokenType.LBracket{}, "["})
+			i = add(i, 1)
+		} else if nc(dat, i, "]") {
+			tokens = append(tokens, Token{TokenType.RBracket{}, "]"})
+			i = add(i, 1)
+		} else if nc(dat, i, "(") {
+			tokens = append(tokens, Token{TokenType.LParen{}, "("})
+			i = add(i, 1)
+		} else if nc(dat, i, ")") {
+			tokens = append(tokens, Token{TokenType.RParen{}, ")"})
+			i = add(i, 1)
+		} else if nc(dat, i, "\n") {
+			tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
+			i = add(i, 1)
+		} else if nc(dat, i, "\r\n") {
+			tokens = append(tokens, Token{TokenType.Newline{}, "\r\n"})
+			i = add(i, 2)
+		} else if nc(dat, i, ",") {
+			tokens = append(tokens, Token{TokenType.Comma{}, ","})
+			i = add(i, i)
+		} else if nc(dat, i, ":=") {
+			tokens = append(tokens, Token{TokenType.Reassignment{}, ":="})
+			i = add(i, 2)
+		} else if nc(dat, i, ":") {
+			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
+			i = add(i, i)
+		} else if nc(dat, i, "=") {
+			tokens = append(tokens, Token{TokenType.Assignment{}, "="})
+			i = add(i, i)
+		} else if nc(dat, i, ".") {
+			tokens = append(tokens, Token{TokenType.Dot{}, "."})
+			i = add(i, i)
 		} else {
-			panic(sprintf("unexpected token: %c, tokens so far: %#v", g(dat, i), tokens))
+			panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
 		}
 	}
+
+	print("Tokens:")
+	print(tokens)
 }

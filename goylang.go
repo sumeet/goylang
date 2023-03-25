@@ -56,6 +56,10 @@ func eq[T comparable](x, y T) bool {
 	return x == y
 }
 
+func ge(x, y int) bool {
+	return x >= y
+}
+
 func or(bs ...bool) bool {
 	for _, b := range bs {
 		if b {	
@@ -80,6 +84,13 @@ func nc(bs []byte, i int, s string) bool {
 
 func sprintf(format string, args ...interface{}) string {
 	return fmt.Sprintf(format, args...)
+}
+
+func print(args ...interface{}) {
+	for _, arg := range args {
+		fmt.Printf("%#v\n", arg)
+	}
+	return
 }
 `
 }
