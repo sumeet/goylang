@@ -25,6 +25,10 @@ struct Token {
 	Value     string,
 }
 
+//func lex(dat []byte) []Token {
+//	return nil
+//}
+
 func main() {
 	dat := readfile("lexer.goy")
 	tokens := []Token{}
@@ -98,9 +102,17 @@ func main() {
 		} else if nc(dat, i, "=") {
 			tokens = append(tokens, Token{TokenType.Assignment{}, "="})
 			i = add(i, i)
-		} else if nc(dat, i, ".") {
-			tokens = append(tokens, Token{TokenType.Dot{}, "."})
-			i = add(i, i)
+		//} else if nc(dat, i, "\"") {
+		//	str := bs("\"")
+		//	while {
+		//		str = append(str, g(dat, i))
+		//		i = add(i, 1)
+		//		if nc(dat, i, "\"") {
+		//			break
+		//		}
+		//	}
+		//	tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
+		//	i = add(i, len(str))
 		} else {
 			panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
 		}

@@ -499,7 +499,10 @@ func parseFuncDecl(tokens []Token) (Function, []Token) {
 	thisToken, tokens = consumeToken(tokens, Ident)
 	fn.Name = thisToken.Value
 	_, tokens = consumeToken(tokens, LParen)
-	// TODO: args
+
+	// TODO: parse parameters
+	// if
+
 	_, tokens = consumeToken(tokens, RParen)
 	fn.Body, tokens = parseBlock(tokens)
 	return fn, tokens

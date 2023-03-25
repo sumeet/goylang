@@ -92,6 +92,10 @@ func print(args ...interface{}) {
 	}
 	return
 }
+
+func bs(s string) []byte {
+	return []byte(s)
+}
 `
 }
 
@@ -434,6 +438,8 @@ func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
 
 func getTypeForFuncCall(ident string) string {
 	if ident == "readfile" {
+		return "[]byte"
+	} else if ident == "bs" {
 		return "[]byte"
 	} else {
 		panic(fmt.Sprintf("don't know type of func call %s", ident))
