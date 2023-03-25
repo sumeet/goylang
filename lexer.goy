@@ -28,10 +28,27 @@ func main() {
 	tokens := []Token{}
 	i := 0
 	while {
+		if or(nc(dat, i, " "), nc(dat, i, "\t"))  {
+		i = add(i, 1)
 		continue
-	}
-
-	while {
-		break
+		} else if isAlpha(g(dat, i)) {
+			ident := []byte{}
+			while {
+				if isAlpha(g(dat, i)) {
+					ident = append(ident, g(dat, i))
+					i = add(i, 1)
+				} else {
+					if eq(string(ident), "enum") {
+						tokens = append(tokens, Token{TokenType.EnumDecl{}, "enum"})
+					} else {
+						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
+					}
+					break
+				}
+			}
+			continue
+		} else {
+			panic(sprintf("unexpected token: %c, tokens so far: %#v", g(dat, i), tokens))
+		}
 	}
 }

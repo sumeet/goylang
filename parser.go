@@ -28,6 +28,7 @@ const (
 	BreakNodeType
 	ContinueNodeType
 	IfNodeType
+	ElseNodeType
 )
 
 // Blah.Foo.Far
@@ -104,6 +105,10 @@ func (n NodeType) ToString() string {
 		return "BreakNodeType"
 	case ContinueNodeType:
 		return "ContinueNodeType"
+	case IfNodeType:
+		return "IfNodeType"
+	case ElseNodeType:
+		return "ElseNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}

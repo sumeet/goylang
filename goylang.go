@@ -13,7 +13,7 @@ func main() {
 		panic(err)
 	}
 	tokens := lex(dat)
-	println(fmt.Sprintf("%#v\n", tokens))
+	//println(fmt.Sprintf("%#v\n", tokens))
 	module := parse(tokens)
 	//println(fmt.Sprintf("%#v\n", module))
 	s := Compile(module)
@@ -25,6 +25,7 @@ func prelude() string {
 
 import (
 	"os"
+	"fmt"
 )
 
 func readfile(fname string) []byte {
@@ -51,11 +52,11 @@ func g[T any](slice []T, i int) T {
 	return slice[i]
 }
 
-func eq[T any](x, y T) bool {
+func eq[T comparable](x, y T) bool {
 	return x == y
 }
 
-func or[T any](bs ...bool) bool {
+func or(bs ...bool) bool {
 	for _, b := range bs {
 		if b {	
 			return true	
@@ -68,8 +69,17 @@ func c(s string) byte {
 	return s[0]
 }
 
-func nt(bs []byte, s string) bool {
-	return bs[0] == s[0]
+func nc(bs []byte, i int, s string) bool {
+	for j, c := range s {
+		if bs[i+j] != byte(c) {
+			return false
+		}	
+	}
+	return true
+}
+
+func sprintf(format string, args ...interface{}) string {
+	return fmt.Sprintf(format, args...)
 }
 `
 }
@@ -117,10 +127,22 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileBreak(b, s.(BreakExpr))
 	case ContinueNodeType:
 		compileContinue(b, s.(ContinueExpr))
+	case IfNodeType:
+		compileIf(b, s.(IfExpr))
 	default:
-		panic(fmt.Sprintf("unknown node type %s", s.NodeType().ToString()))
+		panic(fmt.Sprintf("don't know how to compile node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileIf(b *strings.Builder, expr IfExpr) {
+	b.WriteString("if ")
+	compileExpr(b, expr.Cond)
+	compileExpr(b, expr.IfBody)
+	if expr.ElseBody != nil {
+		b.WriteString(" else ")
+		compileExpr(b, *expr.ElseBody)
+	}
 }
 
 func compileBreak(b *strings.Builder, be BreakExpr) {
@@ -207,7 +229,20 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 	b.WriteString("}\n") // end of anonymous block
 }
 
+var Enums []Enum
+
+func findEnumInTable(name string) *Enum {
+	for _, e := range Enums {
+		if e.Name == name {
+			return &e
+		}
+	}
+	return nil
+}
+
 func compileEnum(b *strings.Builder, enum Enum) {
+	Enums = append(Enums, enum)
+
 	// iota constants for Type enum
 	compileIotaConstants(b, enum)
 	// interface
@@ -285,15 +320,32 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileBlock(b, e.(Block))
 	case WhileExprType:
 		compileWhile(b, e.(WhileExpr))
+	case IfExprType:
+		compileIf(b, e.(IfExpr))
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}
 }
 
+func getVarName(e Expr) *string {
+	switch e.ExprType() {
+	case VarRefExprType:
+		vn := e.(VarRefExpr).VarName
+		return &vn
+	default:
+		return nil
+	}
+}
+
 func compileDotAccessExpr(b *strings.Builder, expr DotAccessExpr) {
-	compileExpr(b, expr.Left)
-	b.WriteString(".")
-	b.WriteString(expr.Right)
+	vn := getVarName(expr.Left)
+	if vn != nil && findEnumInTable(*vn) != nil {
+		compileInitializerLHS(b, expr)
+	} else {
+		compileExpr(b, expr.Left)
+		b.WriteString(".")
+		b.WriteString(expr.Right)
+	}
 }
 
 func compileInitializerExpr(b *strings.Builder, expr InitializerExpr) {
@@ -335,6 +387,9 @@ func compileInitializerLHS(b *strings.Builder, expr Expr) {
 		slice := expr.(SliceType)
 		b.WriteString("[]")
 		b.WriteString(slice.Ident)
+	case VarRefExprType:
+		varRef := expr.(VarRefExpr)
+		b.WriteString(varRef.VarName)
 	default:
 		panic(fmt.Sprintf("unknown initializer LHS type %#v", expr))
 	}
