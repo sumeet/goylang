@@ -469,10 +469,7 @@ func declareVar(b *strings.Builder, varName string, varType string) {
 	b.WriteString(varType)
 	b.WriteString("\n")
 
-	// fudge the compiler's unused var warning
-	b.WriteString("_ = ")
-	b.WriteString(varName)
-	b.WriteString("\n")
+	stfuUnusedVars(b, varName)
 }
 
 func typeListFromTypeString(typ string) []string {
@@ -491,31 +488,19 @@ func typeListFromTypeString(typ string) []string {
 }
 
 func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
-	exprType := guessType(stmt.Expr)
-
-	var exprTypes []string
-	exprTypes = typeListFromTypeString(exprType)
-
 	for i, varName := range stmt.VarNames {
-		declareVar(b, varName, exprTypes[i])
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(varName)
+	}
+	b.WriteString(" := ")
+	compileExpr(b, stmt.Expr)
+	b.WriteString("\n")
+	for _, varName := range stmt.VarNames {
+		stfuUnusedVars(b, varName)
 	}
 
-	if len(stmt.VarNames) == 1 {
-		b.WriteString(stmt.VarNames[0])
-		b.WriteString(" = ")
-		compileExpr(b, stmt.Expr)
-		b.WriteString("\n")
-	} else {
-		for i, varName := range stmt.VarNames {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(varName)
-		}
-		b.WriteString(" = ")
-		compileExpr(b, stmt.Expr)
-		b.WriteString("\n")
-	}
 }
 
 func getTypeForFuncCall(funcCall FuncCallExpr) string {
@@ -528,8 +513,6 @@ func getTypeForFuncCall(funcCall FuncCallExpr) string {
 		return "[]byte"
 	} else if ident == "bs" {
 		return "[]byte"
-	} else if ident == "mr" {
-		return "(int, string)"
 	} else {
 		if f := findFuncInTable(ident); f != nil {
 			return f.ReturnType.Name
@@ -538,6 +521,7 @@ func getTypeForFuncCall(funcCall FuncCallExpr) string {
 	}
 }
 
+// TODO: delete if this keeps being unused for longer periods of time 3/26/2023
 func guessType(expr Expr) string {
 	switch expr.ExprType() {
 	case StringLiteralExprType:

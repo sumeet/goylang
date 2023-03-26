@@ -147,14 +147,39 @@ struct Enum {
 
 func parseProgram(tokens []Token) Program {
 	p := Program{}
+	thisToken := Token{}
 	match (g(tokens, 0).Type) {
 		TokenType.EnumDecl{}: {
-			//thisToken, tokens = parseEnum(tokens)
+			thisToken, tokens = parseEnum(tokens)
 			//p = append(p, Statement.Enum{ parseEnum(tokens) })
 		},
 	}
 	return p
 }
+
+//func parseEnum(tokens []Token) (Enum, []Token) {
+//	e := Enum{}
+//	thisToken := Token{}
+//	match (g(tokens, 0).Type) {
+//		TokenType.EnumDecl{}: {
+//			//e.Name, tokens = parseIdent(tokens)
+//		},
+//	}
+//	return e, tokens
+//}
+
+//func consumeToken(tokens []Token, expectedType TokenType) []Token {
+//	if eq(len(tokens), 0) {
+//		panic("Unexpected end of input")
+//	}
+//	thisToken := Token{}
+//
+//	if eq(g(tokens, 0).Type, expectedType) {
+//		thisToken, tokens = pop(tokens)
+//	} else {
+//		panic(sprintf("Expected %v, got %v", expectedType, g(tokens, 0).Type))
+//	}
+//}
 
 func main() {
 	dat := readfile("lexer.goy")
