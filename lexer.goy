@@ -26,11 +26,6 @@ struct Token {
 }
 
 func lex(dat []byte) []Token {
-	return nil
-}
-
-func main() {
-	dat := readfile("lexer.goy")
 	tokens := []Token{}
 	i := 0
 	while {
@@ -135,7 +130,12 @@ func main() {
 			panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
 		}
 	}
+	return tokens
+}
 
+func main() {
+	dat := readfile("lexer.goy")
+	tokens := lex(dat)
 	print("Tokens:")
 	print(tokens)
 }

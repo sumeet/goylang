@@ -254,10 +254,11 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 	b.WriteString("}\n") // end of anonymous block
 }
 
-var Enums []Enum
+var CompiledEnums []Enum
+var CompiledFuncs map[string]Function = make(map[string]Function)
 
 func findEnumInTable(name string) *Enum {
-	for _, e := range Enums {
+	for _, e := range CompiledEnums {
 		if e.Name == name {
 			return &e
 		}
@@ -265,8 +266,17 @@ func findEnumInTable(name string) *Enum {
 	return nil
 }
 
+func findFuncInTable(name string) *Function {
+	f, ok := CompiledFuncs[name]
+	if !ok {
+		return nil
+	} else {
+		return &f
+	}
+}
+
 func compileEnum(b *strings.Builder, enum Enum) {
-	Enums = append(Enums, enum)
+	CompiledEnums = append(CompiledEnums, enum)
 
 	// iota constants for Type enum
 	compileIotaConstants(b, enum)
@@ -454,6 +464,9 @@ func getTypeForFuncCall(ident string) string {
 	} else if ident == "bs" {
 		return "[]byte"
 	} else {
+		if f := findFuncInTable(ident); f != nil {
+			return f.ReturnType.Name
+		}
 		panic(fmt.Sprintf("don't know type of func call %s", ident))
 	}
 }
@@ -524,6 +537,8 @@ func compileVarRefExpr(b *strings.Builder, expr VarRefExpr) {
 }
 
 func compileFunction(b *strings.Builder, f Function) {
+	CompiledFuncs[f.Name] = f
+
 	b.WriteString("func ")
 	b.WriteString(f.Name)
 	b.WriteString("(")
@@ -531,6 +546,8 @@ func compileFunction(b *strings.Builder, f Function) {
 		if i != 0 {
 			b.WriteString(", ")
 		}
+		b.WriteString(param.Name)
+		b.WriteByte(' ')
 		compileType(b, param.Type)
 	}
 	b.WriteString(") ")
