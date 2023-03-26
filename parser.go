@@ -606,6 +606,10 @@ func parseReassignment(tokens []Token, lValues []string) (ReassignmentStmt, []To
 	return stmt, tokens
 }
 
+type ParseExprOpts struct {
+	SkipMatch bool
+}
+
 func parseExpr(tokens []Token) (Expr, []Token) {
 	old := func() (Expr, []Token) {
 		var maybeIntLiteral *IntLiteralExpr
@@ -672,7 +676,6 @@ post:
 		var thisToken Token
 		thisToken, tokens = consumeToken(tokens, Ident)
 		node = DotAccessExpr{Left: node, Right: thisToken.Value}
-		println("dot access")
 		goto post
 	}
 
@@ -742,7 +745,11 @@ func (i IfExpr) ExprType() ExprType {
 func parseIf(tokens []Token) (IfExpr, []Token) {
 	_, tokens = consumeToken(tokens, If)
 	var ifExpr IfExpr
+
+	_, tokens = consumeToken(tokens, LParen)
 	ifExpr.Cond, tokens = parseExpr(tokens)
+	_, tokens = consumeToken(tokens, RParen)
+
 	ifExpr.IfBody, tokens = parseExpr(tokens)
 	if peekToken(tokens, Else) {
 		_, tokens = consumeToken(tokens, Else)

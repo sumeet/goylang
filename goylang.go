@@ -205,10 +205,16 @@ func golangTypeNameWithBindingsThingTODORename(e Expr) (string, *string) {
 		return s.String(), nil
 	case InitializerExprType:
 		i := e.(InitializerExpr)
-		v := i.Args[0].(VarRefExpr).VarName
 		var s strings.Builder
 		compileInitializerLHS(&s, i.Type)
-		return s.String(), &v
+		if len(i.Args) == 1 {
+			v := i.Args[0].(VarRefExpr).VarName
+			return s.String(), &v
+		} else if len(i.Args) > 1 {
+			panic("initializer with more than one arg in binding")
+		} else {
+			return s.String(), nil
+		}
 	}
 	panic(fmt.Sprintf("unable to get golang type name for expr %#v", e))
 }

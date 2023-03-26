@@ -29,28 +29,28 @@ func lex(dat []byte) []Token {
 	tokens := []Token{}
 	i := 0
 	while {
-		if ge(i, len(dat)) {
+		if (ge(i, len(dat))) {
 			break
-		} else if or(nc(dat, i, " "), nc(dat, i, "\t"))  {
+		} else if (or(nc(dat, i, " "), nc(dat, i, "\t"))) {
 			i = add(i, 1)
 			continue
-		} else if nc(dat, i, "//") {
+		} else if (nc(dat, i, "//")) {
 			while {
-				if nc(dat, i, "\n") {
+				if (nc(dat, i, "\n")) {
 					tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
 					break
 				} else {
 					i = add(i, 1)
 				}
 			}
-		} else if isAlpha(g(dat, i)) {
+		} else if (isAlpha(g(dat, i))) {
 			ident := []byte{}
 			while {
-				if isAlpha(g(dat, i)) {
+				if (isAlpha(g(dat, i))) {
 					ident = append(ident, g(dat, i))
 					i = add(i, 1)
 				} else {
-					if eq(string(ident), "enum") {
+					if (eq(string(ident), "enum")) {
 						tokens = append(tokens, Token{TokenType.EnumDecl{}, "enum"})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
@@ -59,10 +59,10 @@ func lex(dat []byte) []Token {
 				}
 			}
 			continue
-		} else if isDigit(g(dat, i)) {
+		} else if (isDigit(g(dat, i))) {
 		  n := []byte{}
 		  while {
-			if isDigit(g(dat, i)) {
+			if (isDigit(g(dat, i))) {
 				n = append(n, g(dat, i))
 				i = add(i, 1)
 			} else {
@@ -70,54 +70,54 @@ func lex(dat []byte) []Token {
 			  break
 			}
 		  }
-		} else if nc(dat, i, "{") {
+		} else if (nc(dat, i, "{")) {
 			tokens = append(tokens, Token{TokenType.LCurly{}, "{"})
 			i = add(i, 1)
-		} else if nc(dat, i, "}") {
+		} else if (nc(dat, i, "}")) {
 			tokens = append(tokens, Token{TokenType.RCurly{}, "}"})
 			i = add(i, 1)
-		} else if nc(dat, i, "[") {
+		} else if (nc(dat, i, "[")) {
 			tokens = append(tokens, Token{TokenType.LBracket{}, "["})
 			i = add(i, 1)
-		} else if nc(dat, i, "]") {
+		} else if (nc(dat, i, "]")) {
 			tokens = append(tokens, Token{TokenType.RBracket{}, "]"})
 			i = add(i, 1)
-		} else if nc(dat, i, "(") {
+		} else if (nc(dat, i, "(")) {
 			tokens = append(tokens, Token{TokenType.LParen{}, "("})
 			i = add(i, 1)
-		} else if nc(dat, i, ")") {
+		} else if (nc(dat, i, ")")) {
 			tokens = append(tokens, Token{TokenType.RParen{}, ")"})
 			i = add(i, 1)
-		} else if nc(dat, i, "\n") {
+		} else if (nc(dat, i, "\n")) {
 			tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
 			i = add(i, 1)
-		} else if nc(dat, i, "\r\n") {
+		} else if (nc(dat, i, "\r\n")) {
 			tokens = append(tokens, Token{TokenType.Newline{}, "\r\n"})
 			i = add(i, 2)
-		} else if nc(dat, i, ",") {
+		} else if (nc(dat, i, ",")) {
 			tokens = append(tokens, Token{TokenType.Comma{}, ","})
 			i = add(i, 1)
-		} else if nc(dat, i, ":=") {
+		} else if (nc(dat, i, ":=")) {
 			tokens = append(tokens, Token{TokenType.Reassignment{}, ":="})
 			i = add(i, 2)
-		} else if nc(dat, i, ":") {
+		} else if (nc(dat, i, ":")) {
 			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
 			i = add(i, 1)
-		} else if nc(dat, i, "=") {
+		} else if (nc(dat, i, "=")) {
 			tokens = append(tokens, Token{TokenType.Assignment{}, "="})
 			i = add(i, 1)
-		} else if nc(dat, i, ".") {
+		} else if (nc(dat, i, ".")) {
 			tokens = append(tokens, Token{TokenType.Dot{}, "."})
 			i = add(i, 1)
-		} else if nc(dat, i, "\"") {
+		} else if (nc(dat, i, "\"")) {
 			str := bs("\"")
 			i = add(i, 1)
 			while {
-				if nc(dat, i, "\"") {
+				if (nc(dat, i, "\"")) {
 					str = append(str, g(dat, i))
 					i = add(i, 1)
 					break
-				} else if nc(dat, i, "\\\"") {
+				} else if (nc(dat, i, "\\\"")) {
 					str = append(str, g(dat, i), g(dat, add(i, 1)))
 					i = add(i, 2)
 				} else {
