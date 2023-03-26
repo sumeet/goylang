@@ -96,10 +96,6 @@ func print(args ...interface{}) {
 func bs(s string) []byte {
 	return []byte(s)
 }
-
-func mr() (int, string) {
-
-}
 `
 }
 
