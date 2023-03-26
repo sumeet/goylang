@@ -133,6 +133,14 @@ func lex(dat []byte) []Token {
 	return tokens
 }
 
+enum Expr {
+	Enum(Enum),
+}
+
+struct Enum {
+	Name string,
+}
+
 func main() {
 	dat := readfile("lexer.goy")
 	tokens := lex(dat)
