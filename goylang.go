@@ -144,10 +144,20 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileContinue(b, s.(ContinueExpr))
 	case IfNodeType:
 		compileIf(b, s.(IfExpr))
+	case ReturnNodeType:
+		compileReturn(b, s.(ReturnExpr))
 	default:
 		panic(fmt.Sprintf("don't know how to compile node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileReturn(b *strings.Builder, ret ReturnExpr) {
+	b.WriteString("return")
+	if ret.Expr != nil {
+		b.WriteByte(' ')
+		compileExpr(b, *ret.Expr)
+	}
 }
 
 func compileIf(b *strings.Builder, expr IfExpr) {
@@ -387,6 +397,10 @@ func golangInterfaceNameForEnumVariant(expr Expr) string {
 	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
 }
 
+func compileType(b *strings.Builder, t Type) {
+	b.WriteString(t.Name)
+}
+
 func compileInitializerLHS(b *strings.Builder, expr Expr) {
 	switch expr.ExprType() {
 	case DotAccessExprType:
@@ -398,10 +412,8 @@ func compileInitializerLHS(b *strings.Builder, expr Expr) {
 		rightNodeName := dotAccessExpr.Right
 		b.WriteString(leftNode.VarName)
 		b.WriteString(rightNodeName)
-	case SliceExprType:
-		slice := expr.(SliceType)
-		b.WriteString("[]")
-		b.WriteString(slice.Ident)
+	case TypeExprType:
+		compileType(b, expr.(Type))
 	case VarRefExprType:
 		varRef := expr.(VarRefExpr)
 		b.WriteString(varRef.VarName)
@@ -463,8 +475,8 @@ func guessType(expr Expr) string {
 		panic(fmt.Sprintf("can't guess type for var ref %#v", expr))
 	case InitializerExprType:
 		init := expr.(InitializerExpr)
-		if slice, ok := init.Type.(SliceType); ok {
-			return fmt.Sprintf("[]%s", slice.Ident)
+		if typ, ok := init.Type.(Type); ok {
+			return typ.Name
 		} else {
 			return golangInterfaceNameForEnumVariant(init.Type)
 		}
@@ -515,12 +527,16 @@ func compileFunction(b *strings.Builder, f Function) {
 	b.WriteString("func ")
 	b.WriteString(f.Name)
 	b.WriteString("(")
-	//for i, arg := range f.Args {
-	//	if i != 0 {
-	//		b.WriteString(", ")
-	//	}
-	//	b.WriteString(arg)
-	//}
+	for i, param := range f.Params {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		compileType(b, param.Type)
+	}
 	b.WriteString(") ")
+	if f.ReturnType != nil {
+		compileType(b, *f.ReturnType)
+		b.WriteString(" ")
+	}
 	compileBlock(b, f.Body)
 }

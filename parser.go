@@ -29,6 +29,7 @@ const (
 	ContinueNodeType
 	IfNodeType
 	ElseNodeType
+	ReturnNodeType
 )
 
 // Blah.Foo.Far
@@ -109,6 +110,8 @@ func (n NodeType) ToString() string {
 		return "IfNodeType"
 	case ElseNodeType:
 		return "ElseNodeType"
+	case ReturnNodeType:
+		return "ReturnNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -137,7 +140,7 @@ const (
 	InitializerExprType
 	MatchExprType
 	BlockExprType
-	SliceExprType
+	TypeExprType
 	WhileExprType
 	BreakExprType
 	ContinueExprType
@@ -201,8 +204,15 @@ func (b Block) Children() []Node {
 }
 
 type Function struct {
+	Name       string
+	Params     []Param
+	Body       Block
+	ReturnType *Type
+}
+
+type Param struct {
 	Name string
-	Body Block
+	Type Type
 }
 
 func (f Function) Children() []Node {
@@ -500,10 +510,31 @@ func parseFuncDecl(tokens []Token) (Function, []Token) {
 	fn.Name = thisToken.Value
 	_, tokens = consumeToken(tokens, LParen)
 
-	// TODO: parse parameters
-	// if
+	for len(tokens) > 0 {
+		if peekToken(tokens, RParen) {
+			break
+		}
+		var param Param
+		thisToken, tokens = consumeToken(tokens, Ident)
+		param.Name = thisToken.Value
+		param.Type, tokens = parseType(tokens)
+		fn.Params = append(fn.Params, param)
+
+		if peekToken(tokens, RParen) {
+			break
+		}
+
+		_, tokens = consumeToken(tokens, Comma)
+	}
 
 	_, tokens = consumeToken(tokens, RParen)
+
+	if !peekToken(tokens, LCurly) {
+		var returnType Type
+		returnType, tokens = parseType(tokens)
+		fn.ReturnType = &returnType
+	}
+
 	fn.Body, tokens = parseBlock(tokens)
 	return fn, tokens
 }
@@ -584,8 +615,9 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 			return parseBlock(tokens)
 		}
 
-		if tokens[0].Type == LBracket {
-			return parseSliceType(tokens)
+		// slices means we're definitely gonna see a type coming, for now
+		if peekToken(tokens, LBracket, RBracket) {
+			return parseType(tokens)
 		}
 
 		if tokens[0].Type == While {
@@ -602,6 +634,10 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 
 		if tokens[0].Type == If {
 			return parseIf(tokens)
+		}
+
+		if tokens[0].Type == Return {
+			return parseReturn(tokens)
 		}
 
 		// therefore, must be a var reference
@@ -630,6 +666,35 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	}
 
 	return node, tokens
+}
+
+type ReturnExpr struct {
+	Expr *Expr
+}
+
+func (r ReturnExpr) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (r ReturnExpr) NodeType() NodeType {
+	return ReturnNodeType
+}
+
+func (r ReturnExpr) ExprType() ExprType {
+	//TODO implement me
+	panic("implement me")
+}
+
+func parseReturn(tokens []Token) (ReturnExpr, []Token) {
+	var ret ReturnExpr
+	_, tokens = consumeToken(tokens, Return)
+	if !peekToken(tokens, Newline) {
+		var expr Expr
+		expr, tokens = parseExpr(tokens)
+		ret.Expr = &expr
+	}
+	return ret, tokens
 }
 
 type IfExpr struct {
@@ -731,32 +796,40 @@ func parseWhile(tokens []Token) (WhileExpr, []Token) {
 	return w, tokens
 }
 
-type SliceType struct {
-	Ident string
+type Type struct {
+	Name string
 }
 
-func (s SliceType) Children() []Node {
+func (s Type) Children() []Node {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s SliceType) NodeType() NodeType {
+func (s Type) NodeType() NodeType {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s SliceType) ExprType() ExprType {
-	return SliceExprType
+func (s Type) ExprType() ExprType {
+	return TypeExprType
 }
 
-func parseSliceType(tokens []Token) (SliceType, []Token) {
-	var sliceType SliceType
+func parseType(tokens []Token) (Type, []Token) {
+	var tn []byte
+	var typ Type
+	// maybe it's a slice type
+	if peekToken(tokens, LBracket) {
+		_, tokens = consumeToken(tokens, LBracket)
+		_, tokens = consumeToken(tokens, RBracket)
+		tn = append(tn, '[', ']')
+	}
+
+	// otherwise it's an ident
 	var thisToken Token
-	_, tokens = consumeToken(tokens, LBracket)
-	_, tokens = consumeToken(tokens, RBracket)
 	thisToken, tokens = consumeToken(tokens, Ident)
-	sliceType.Ident = thisToken.Value
-	return sliceType, tokens
+	tn = append(tn, []byte(thisToken.Value)...)
+	typ.Name = string(tn)
+	return typ, tokens
 }
 
 func tryParseMatchStmt(tokens []Token) (*MatchStmt, []Token) {
@@ -859,14 +932,20 @@ func consumeFuncCall(expr Expr, tokens []Token) (FuncCallExpr, []Token) {
 	return funcCall, tokens
 }
 
-func peekToken(tokens []Token, expectedType TokenType) bool {
+func peekToken(tokens []Token, expectedTypes ...TokenType) bool {
 	if len(tokens) == 0 {
 		panic("Unexpected end of input")
 	}
-	if expectedType != Newline {
-		tokens = skipNewlines(tokens)
+	for _, expectedType := range expectedTypes {
+		if expectedType != Newline {
+			tokens = skipNewlines(tokens)
+		}
+		if tokens[0].Type != expectedType {
+			return false
+		}
+		tokens = tokens[1:]
 	}
-	return tokens[0].Type == expectedType
+	return true
 }
 
 func skipNewlines(tokens []Token) []Token {

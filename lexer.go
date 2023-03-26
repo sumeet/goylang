@@ -33,6 +33,7 @@ const (
 	Continue
 	If
 	Else
+	Return
 )
 
 func formatToken(t Token) string {
@@ -54,7 +55,7 @@ func formatToken(t Token) string {
 	case RCurly:
 		return "RCurly"
 	case Ident:
-		return fmt.Sprintf("Ident(%s)", t.Value)
+		return fmt.Sprintf("Name(%s)", t.Value)
 	case IntLiteral:
 		return fmt.Sprintf("IntLiteral(%s)", t.Value)
 	case Assignment:
@@ -87,7 +88,8 @@ func formatToken(t Token) string {
 		return "If"
 	case Else:
 		return "Else"
-
+	case Return:
+		return "Return"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t.Type))
 	}
@@ -112,7 +114,7 @@ func formatTokenType(t TokenType) string {
 	case RCurly:
 		return "RCurly"
 	case Ident:
-		return "Ident"
+		return "Name"
 	case IntLiteral:
 		return "IntLiteral"
 	case Assignment:
@@ -145,6 +147,8 @@ func formatTokenType(t TokenType) string {
 		return "If"
 	case Else:
 		return "Else"
+	case Return:
+		return "Return"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t))
 	}
@@ -199,6 +203,8 @@ func lex(dat []byte) []Token {
 				tokens = append(tokens, Token{Break, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("continue")) == 0 {
 				tokens = append(tokens, Token{Continue, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("return")) == 0 {
+				tokens = append(tokens, Token{Return, string(thisIdent)})
 			} else {
 				tokens = append(tokens, Token{Ident, string(thisIdent)})
 			}

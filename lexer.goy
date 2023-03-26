@@ -25,9 +25,9 @@ struct Token {
 	Value     string,
 }
 
-//func lex(dat []byte) []Token {
-//	return nil
-//}
+func lex(dat []byte) []Token {
+	return nil
+}
 
 func main() {
 	dat := readfile("lexer.goy")
