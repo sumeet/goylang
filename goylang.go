@@ -479,20 +479,26 @@ func declareVar(b *strings.Builder, varName string, varType string) {
 	b.WriteString("\n")
 }
 
+func typeListFromTypeString(typ string) []string {
+	var typeList []string
+	// if exprType is a (a, b, c) tuple, then we need to extract the type names
+	if strings.HasPrefix(typ, "(") && strings.HasSuffix(typ, ")") {
+		// split the tuple into its component types
+		typ = strings.TrimPrefix(typ, "(")
+		typ = strings.TrimSuffix(typ, ")")
+
+		typeList = strings.Split(typ, ", ")
+	} else {
+		typeList = []string{typ}
+	}
+	return typeList
+}
+
 func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
 	exprType := guessType(stmt.Expr)
+
 	var exprTypes []string
-
-	// if exprType is a (a, b, c) tuple, then we need to extract the type names
-	if strings.HasPrefix(exprType, "(") && strings.HasSuffix(exprType, ")") {
-		// split the tuple into its component types
-		exprType = strings.TrimPrefix(exprType, "(")
-		exprType = strings.TrimSuffix(exprType, ")")
-
-		exprTypes = strings.Split(exprType, ", ")
-	} else {
-		exprTypes = []string{exprType}
-	}
+	exprTypes = typeListFromTypeString(exprType)
 
 	for i, varName := range stmt.VarNames {
 		declareVar(b, varName, exprTypes[i])
