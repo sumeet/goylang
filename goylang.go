@@ -96,6 +96,10 @@ func print(args ...interface{}) {
 func bs(s string) []byte {
 	return []byte(s)
 }
+
+func mr() (int, string) {
+
+}
 `
 }
 
@@ -154,9 +158,17 @@ func compileStatement(b *strings.Builder, s Statement) {
 
 func compileReturn(b *strings.Builder, ret ReturnExpr) {
 	b.WriteString("return")
-	if ret.Expr != nil {
-		b.WriteByte(' ')
-		compileExpr(b, *ret.Expr)
+
+	// multiple return values are possible
+	if len(ret.Exprs) > 0 {
+		b.WriteString(" ")
+	}
+
+	for i, expr := range ret.Exprs {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		compileExpr(b, expr)
 	}
 }
 
@@ -454,22 +466,54 @@ func compileBlock(b *strings.Builder, block Block) {
 	b.WriteString("}")
 }
 
-func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
-	// TODO: this doesn't handle multiple assignments
+func declareVar(b *strings.Builder, varName string, varType string) {
 	b.WriteString("var ")
-	b.WriteString(stmt.VarNames[0])
+	b.WriteString(varName)
 	b.WriteString(" ")
-	b.WriteString(guessType(stmt.Expr))
+	b.WriteString(varType)
 	b.WriteString("\n")
 
-	b.WriteString(stmt.VarNames[0])
-	b.WriteString(" = ")
-	compileExpr(b, stmt.Expr)
-	b.WriteString("\n")
-
+	// fudge the compiler's unused var warning
 	b.WriteString("_ = ")
-	b.WriteString(stmt.VarNames[0])
+	b.WriteString(varName)
 	b.WriteString("\n")
+}
+
+func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
+	exprType := guessType(stmt.Expr)
+	var exprTypes []string
+
+	// if exprType is a (a, b, c) tuple, then we need to extract the type names
+	if strings.HasPrefix(exprType, "(") && strings.HasSuffix(exprType, ")") {
+		// split the tuple into its component types
+		exprType = strings.TrimPrefix(exprType, "(")
+		exprType = strings.TrimSuffix(exprType, ")")
+
+		exprTypes = strings.Split(exprType, ", ")
+	} else {
+		exprTypes = []string{exprType}
+	}
+
+	for i, varName := range stmt.VarNames {
+		declareVar(b, varName, exprTypes[i])
+	}
+
+	if len(stmt.VarNames) == 1 {
+		b.WriteString(stmt.VarNames[0])
+		b.WriteString(" = ")
+		compileExpr(b, stmt.Expr)
+		b.WriteString("\n")
+	} else {
+		for i, varName := range stmt.VarNames {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(varName)
+		}
+		b.WriteString(" = ")
+		compileExpr(b, stmt.Expr)
+		b.WriteString("\n")
+	}
 }
 
 func getTypeForFuncCall(funcCall FuncCallExpr) string {
@@ -482,6 +526,8 @@ func getTypeForFuncCall(funcCall FuncCallExpr) string {
 		return "[]byte"
 	} else if ident == "bs" {
 		return "[]byte"
+	} else if ident == "mr" {
+		return "(int, string)"
 	} else {
 		if f := findFuncInTable(ident); f != nil {
 			return f.ReturnType.Name

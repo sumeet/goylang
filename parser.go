@@ -564,6 +564,7 @@ func getLValuesFor(tokens []Token, tokenType TokenType) ([]string, []Token) {
 		if peekToken(tokens, Ident, Comma) {
 			thisToken, tokens = consumeToken(tokens, Ident)
 			lValues = append(lValues, thisToken.Value)
+			thisToken, tokens = consumeToken(tokens, Comma)
 			continue
 		} else if peekToken(tokens, Ident, tokenType) {
 			thisToken, tokens = consumeToken(tokens, Ident)
@@ -695,12 +696,15 @@ post:
 }
 
 type ReturnExpr struct {
-	Expr *Expr
+	Exprs []Expr
 }
 
 func (r ReturnExpr) Children() []Node {
-	//TODO implement me
-	panic("implement me")
+	var children []Node
+	for _, expr := range r.Exprs {
+		children = append(children, expr)
+	}
+	return children
 }
 
 func (r ReturnExpr) NodeType() NodeType {
@@ -715,11 +719,19 @@ func (r ReturnExpr) ExprType() ExprType {
 func parseReturn(tokens []Token) (ReturnExpr, []Token) {
 	var ret ReturnExpr
 	_, tokens = consumeToken(tokens, Return)
+
 	if !peekToken(tokens, Newline) {
 		var expr Expr
 		expr, tokens = parseExpr(tokens)
-		ret.Expr = &expr
+		ret.Exprs = append(ret.Exprs, expr)
+
+		for peekToken(tokens, Comma) {
+			_, tokens = consumeToken(tokens, Comma)
+			expr, tokens = parseExpr(tokens)
+			ret.Exprs = append(ret.Exprs, expr)
+		}
 	}
+
 	return ret, tokens
 }
 
@@ -847,6 +859,28 @@ func (s Type) ExprType() ExprType {
 func parseType(tokens []Token) (Type, []Token) {
 	var tn []byte
 	var typ Type
+
+	// maybe it's a tuple-like list of multiple return values for a function.
+	// parse naively as a list of type names (rather, don't call this function
+	// again for each type, because you can't have a tuple of tuples)
+	if peekToken(tokens, LParen) {
+		_, tokens = consumeToken(tokens, LParen)
+		var thisToken Token
+		thisToken, tokens = consumeToken(tokens, Ident)
+		tn = append(tn, '(')
+		tn = append(tn, []byte(thisToken.Value)...)
+		for peekToken(tokens, Comma) {
+			tn = append(tn, []byte(", ")...)
+			_, tokens = consumeToken(tokens, Comma)
+			thisToken, tokens = consumeToken(tokens, Ident)
+			tn = append(tn, []byte(thisToken.Value)...)
+		}
+		tn = append(tn, ')')
+		_, tokens = consumeToken(tokens, RParen)
+		typ.Name = string(tn)
+		return typ, tokens
+	}
+
 	// maybe it's a slice type
 	if peekToken(tokens, LBracket) {
 		_, tokens = consumeToken(tokens, LBracket)
@@ -940,12 +974,15 @@ func consumeFuncCall(expr Expr, tokens []Token) (FuncCallExpr, []Token) {
 	funcCall.Expr = expr
 	_, tokens = consumeToken(tokens, LParen)
 	for true {
-		thisExpr, tokens = parseExpr(tokens)
-		funcCall.Args = append(funcCall.Args, thisExpr)
 		if tokens[0].Type == RParen {
 			_, tokens = consumeToken(tokens, RParen)
 			break
-		} else {
+		}
+
+		thisExpr, tokens = parseExpr(tokens)
+		funcCall.Args = append(funcCall.Args, thisExpr)
+
+		if tokens[0].Type == Comma {
 			_, tokens = consumeToken(tokens, Comma)
 		}
 	}
