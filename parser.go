@@ -32,9 +32,6 @@ const (
 	ReturnNodeType
 )
 
-// Blah.Foo.Far
-// blah.Foo().Far().Something
-
 type DotAccessExpr struct {
 	Left  Expr
 	Right string
@@ -114,13 +111,6 @@ func (n NodeType) ToString() string {
 		return "ReturnNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
-	}
-}
-
-func Walk(n Node, fn func(Node)) {
-	fn(n)
-	for _, child := range n.Children() {
-		Walk(child, fn)
 	}
 }
 
@@ -240,8 +230,8 @@ func (p Module) NodeType() NodeType {
 }
 
 type AssignmentStmt struct {
-	VarName string
-	Expr    Expr
+	VarNames []string
+	Expr     Expr
 }
 
 func (a AssignmentStmt) NodeType() NodeType {
@@ -295,8 +285,8 @@ type EnumPattern struct {
 }
 
 type ReassignmentStmt struct {
-	VarName string
-	Expr    Expr
+	VarNames []string
+	Expr     Expr
 }
 
 func (r ReassignmentStmt) Children() []Node {
@@ -393,7 +383,7 @@ func (s Struct) NodeType() NodeType {
 
 type StructField struct {
 	Name string
-	Type string
+	Type Type
 }
 
 func parse(tokens []Token) (program Module) {
@@ -437,8 +427,7 @@ func parseStructDecl(tokens []Token) (Struct, []Token) {
 
 		thisToken, tokens = consumeToken(tokens, Ident)
 		field.Name = thisToken.Value
-		thisToken, tokens = consumeToken(tokens, Ident)
-		field.Type = thisToken.Value
+		field.Type, tokens = parseType(tokens)
 
 		strukt.Fields = append(strukt.Fields, field)
 		_, tokens = consumeToken(tokens, Comma)
@@ -567,25 +556,54 @@ func parseBlock(tokens []Token) (Block, []Token) {
 	return block, tokens
 }
 
-func parseStatement(tokens []Token) (Statement, []Token) {
-	if tokens[0].Type == Ident && tokens[1].Type == Assignment {
-		return parseAssignment(tokens)
-	} else if tokens[0].Type == Ident && tokens[1].Type == Reassignment {
-		return parseReassignment(tokens)
-	} else {
-		// must be an expr
-		return parseExpr(tokens)
+func getLValuesFor(tokens []Token, tokenType TokenType) ([]string, []Token) {
+	origTokens := tokens
+	var lValues []string
+	var thisToken Token
+	for len(tokens) > 0 {
+		if peekToken(tokens, Ident, Comma) {
+			thisToken, tokens = consumeToken(tokens, Ident)
+			lValues = append(lValues, thisToken.Value)
+			continue
+		} else if peekToken(tokens, Ident, tokenType) {
+			thisToken, tokens = consumeToken(tokens, Ident)
+			lValues = append(lValues, thisToken.Value)
+			return lValues, tokens
+		} else {
+			return nil, origTokens
+		}
 	}
+	panic("unreachable")
 }
 
-func parseAssignment(tokens []Token) (AssignmentStmt, []Token) {
-	var assignmentStmt AssignmentStmt
-	var thisToken Token
-	thisToken, tokens = consumeToken(tokens, Ident)
-	assignmentStmt.VarName = thisToken.Value
+func parseStatement(tokens []Token) (Statement, []Token) {
+	var lValues []string
+	lValues, tokens = getLValuesFor(tokens, Assignment)
+	if len(lValues) > 0 {
+		return parseAssignment(tokens, lValues)
+	}
+	lValues, tokens = getLValuesFor(tokens, Reassignment)
+	if len(lValues) > 0 {
+		return parseReassignment(tokens, lValues)
+	}
+	// else must be an expr
+	return parseExpr(tokens)
+}
+
+func parseAssignment(tokens []Token, lValues []string) (AssignmentStmt, []Token) {
+	var stmt AssignmentStmt
+	stmt.VarNames = lValues
 	_, tokens = consumeToken(tokens, Assignment)
-	assignmentStmt.Expr, tokens = parseExpr(tokens)
-	return assignmentStmt, tokens
+	stmt.Expr, tokens = parseExpr(tokens)
+	return stmt, tokens
+}
+
+func parseReassignment(tokens []Token, lValues []string) (ReassignmentStmt, []Token) {
+	var stmt ReassignmentStmt
+	stmt.VarNames = lValues
+	_, tokens = consumeToken(tokens, Reassignment)
+	stmt.Expr, tokens = parseExpr(tokens)
+	return stmt, tokens
 }
 
 func parseExpr(tokens []Token) (Expr, []Token) {
@@ -647,22 +665,27 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 	}
 	node, tokens := old()
 
+post:
 	// handle period
-	if len(tokens) > 0 && tokens[0].Type == Dot {
+	if peekToken(tokens, Dot) {
 		_, tokens = consumeToken(tokens, Dot)
 		var thisToken Token
 		thisToken, tokens = consumeToken(tokens, Ident)
 		node = DotAccessExpr{Left: node, Right: thisToken.Value}
+		println("dot access")
+		goto post
 	}
 
 	// handle initializer
 	if len(tokens) > 0 && tokens[0].Type == LCurly {
 		node, tokens = consumeInitializer(node, tokens)
+		goto post
 	}
 
 	// handle function calls
 	if len(tokens) > 0 && tokens[0].Type == LParen {
 		node, tokens = consumeFuncCall(node, tokens)
+		goto post
 	}
 
 	return node, tokens
@@ -901,16 +924,6 @@ func tryParseIntLiteral(tokens []Token) (*IntLiteralExpr, []Token) {
 	} else {
 		return nil, tokens
 	}
-}
-
-func parseReassignment(tokens []Token) (ReassignmentStmt, []Token) {
-	var stmt ReassignmentStmt
-	var thisToken Token
-	thisToken, tokens = consumeToken(tokens, Ident)
-	stmt.VarName = thisToken.Value
-	_, tokens = consumeToken(tokens, Reassignment)
-	stmt.Expr, tokens = parseExpr(tokens)
-	return stmt, tokens
 }
 
 func consumeFuncCall(expr Expr, tokens []Token) (FuncCallExpr, []Token) {

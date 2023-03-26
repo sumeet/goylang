@@ -190,7 +190,7 @@ func compileStruct(b *strings.Builder, strukt Struct) {
 	for _, field := range strukt.Fields {
 		b.WriteString(field.Name)
 		b.WriteString(" ")
-		b.WriteString(field.Type)
+		compileType(b, field.Type)
 		b.WriteString("\n")
 
 	}
@@ -220,12 +220,15 @@ func stfuUnusedVars(b *strings.Builder, varName string) {
 }
 
 const BindingVarname = "binding"
+const MatchExprVarname = "matchExpr"
 
 func compileMatch(b *strings.Builder, match MatchStmt) {
 	b.WriteString("{\n")
-	b.WriteString("matchExpr := ")
+	b.WriteString(MatchExprVarname)
+	b.WriteString(" := ")
 	compileExpr(b, match.MatchExpr)
 	b.WriteString("\n")
+	stfuUnusedVars(b, MatchExprVarname)
 
 	for i, matchArm := range match.Arms {
 		// right now it's just an enum variant, but could be other stuff that you might want to match in the future
@@ -395,7 +398,9 @@ func compileInitializerExpr(b *strings.Builder, expr InitializerExpr) {
 	b.WriteString(" }")
 }
 
-func golangInterfaceNameForEnumVariant(expr Expr) string {
+// TODO: this feels funny. feels like instead we should just be able to
+// guessType(expr) and then Type -> Golang type
+func guessGolangTypeName(expr Expr) string {
 	switch expr.ExprType() {
 	case DotAccessExprType:
 		dotAccessExpr := expr.(DotAccessExpr)
@@ -403,6 +408,8 @@ func golangInterfaceNameForEnumVariant(expr Expr) string {
 			break
 		}
 		return dotAccessExpr.Left.(VarRefExpr).VarName
+	case VarRefExprType:
+		return expr.(VarRefExpr).VarName
 	}
 	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
 }
@@ -442,23 +449,29 @@ func compileBlock(b *strings.Builder, block Block) {
 }
 
 func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
+	// TODO: this doesn't handle multiple assignments
 	b.WriteString("var ")
-	b.WriteString(stmt.VarName)
+	b.WriteString(stmt.VarNames[0])
 	b.WriteString(" ")
 	b.WriteString(guessType(stmt.Expr))
 	b.WriteString("\n")
 
-	b.WriteString(stmt.VarName)
+	b.WriteString(stmt.VarNames[0])
 	b.WriteString(" = ")
 	compileExpr(b, stmt.Expr)
 	b.WriteString("\n")
 
 	b.WriteString("_ = ")
-	b.WriteString(stmt.VarName)
+	b.WriteString(stmt.VarNames[0])
 	b.WriteString("\n")
 }
 
-func getTypeForFuncCall(ident string) string {
+func getTypeForFuncCall(funcCall FuncCallExpr) string {
+	varRef, ok := funcCall.Expr.(VarRefExpr)
+	if !ok {
+		panic(fmt.Sprintf("expected var ref expr for func call %#v", funcCall))
+	}
+	ident := varRef.VarName
 	if ident == "readfile" {
 		return "[]byte"
 	} else if ident == "bs" {
@@ -477,11 +490,7 @@ func guessType(expr Expr) string {
 		return "string"
 	case FuncCallExprType:
 		funcCall := expr.(FuncCallExpr)
-		varRef, ok := funcCall.Expr.(VarRefExpr)
-		if !ok {
-			panic(fmt.Sprintf("expected var ref expr for func call %#v", funcCall))
-		}
-		return getTypeForFuncCall(varRef.VarName)
+		return getTypeForFuncCall(funcCall)
 	case IntLiteralExprType:
 		return "int"
 	case VarRefExprType:
@@ -491,7 +500,7 @@ func guessType(expr Expr) string {
 		if typ, ok := init.Type.(Type); ok {
 			return typ.Name
 		} else {
-			return golangInterfaceNameForEnumVariant(init.Type)
+			return guessGolangTypeName(init.Type)
 		}
 		//case DotAccessExprType:
 		//	dotAccessExpr := expr.(DotAccessExpr)
@@ -507,7 +516,12 @@ func guessType(expr Expr) string {
 }
 
 func compileReassignmentStmt(b *strings.Builder, stmt ReassignmentStmt) {
-	b.WriteString(stmt.VarName)
+	for i, varName := range stmt.VarNames {
+		if i != 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(varName)
+	}
 	b.WriteString(" = ")
 	compileExpr(b, stmt.Expr)
 }

@@ -21,7 +21,7 @@ enum TokenType {
 }
 
 struct Token {
-	TokenType TokenType,
+	Type TokenType,
 	Value     string,
 }
 
@@ -133,12 +133,27 @@ func lex(dat []byte) []Token {
 	return tokens
 }
 
-enum Expr {
+enum Statement {
 	Enum(Enum),
+}
+
+struct Program {
+	Statements []Statement,
 }
 
 struct Enum {
 	Name string,
+}
+
+func parseProgram(tokens []Token) Program {
+	p := Program{}
+	match (g(tokens, 0).Type) {
+		TokenType.EnumDecl{}: {
+			//thisToken, tokens = parseEnum(tokens)
+			//p = append(p, Statement.Enum{ parseEnum(tokens) })
+		},
+	}
+	return p
 }
 
 func main() {
