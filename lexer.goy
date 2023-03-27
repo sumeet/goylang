@@ -1,3 +1,7 @@
+import "net/http"
+import "os"
+import "fmt"
+
 enum TokenType {
 	FuncDecl,
 	LParen,

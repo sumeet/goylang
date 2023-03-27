@@ -34,6 +34,7 @@ const (
 	If
 	Else
 	Return
+	Import
 )
 
 func formatToken(t Token) string {
@@ -215,6 +216,8 @@ func lex(dat []byte) []Token {
 				tokens = append(tokens, Token{StructDecl, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("match")) == 0 {
 				tokens = append(tokens, Token{Match, string(thisIdent)})
+			} else if bytes.Compare(thisIdent, []byte("import")) == 0 {
+				tokens = append(tokens, Token{Import, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("while")) == 0 {
 				tokens = append(tokens, Token{While, string(thisIdent)})
 			} else if bytes.Compare(thisIdent, []byte("if")) == 0 {

@@ -32,6 +32,7 @@ const (
 	ReturnNodeType
 	ArrayAccessNodeType
 	BinaryOpNodeType
+	ImportStmtNodeType
 )
 
 type DotAccessExpr struct {
@@ -113,6 +114,8 @@ func (n NodeType) ToString() string {
 		return "ReturnNodeType"
 	case BinaryOpNodeType:
 		return "BinaryOpNodeType"
+	case ImportStmtNodeType:
+		return "ImportStmtNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -417,6 +420,19 @@ type StructField struct {
 	Type Type
 }
 
+type ImportStmt struct {
+	Path string
+}
+
+func (i ImportStmt) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (i ImportStmt) NodeType() NodeType {
+	return ImportStmtNodeType
+}
+
 func parse(tokens []Token) (program Module) {
 	for len(tokens) > 0 {
 		token := tokens[0]
@@ -433,6 +449,10 @@ func parse(tokens []Token) (program Module) {
 			var strukt Struct
 			strukt, tokens = parseStructDecl(tokens)
 			program.Statements = append(program.Statements, strukt)
+		case Import:
+			var importStmt ImportStmt
+			importStmt, tokens = parseImportStmt(tokens)
+			program.Statements = append(program.Statements, importStmt)
 		case Newline:
 			tokens = tokens[1:]
 		default:
@@ -440,6 +460,15 @@ func parse(tokens []Token) (program Module) {
 		}
 	}
 	return
+}
+
+func parseImportStmt(tokens []Token) (ImportStmt, []Token) {
+	var importStmt ImportStmt
+	var thisToken Token
+	_, tokens = consumeToken(tokens, Import)
+	thisToken, tokens = consumeToken(tokens, StringLiteral)
+	importStmt.Path = thisToken.Value
+	return importStmt, tokens
 }
 
 func parseStructDecl(tokens []Token) (Struct, []Token) {

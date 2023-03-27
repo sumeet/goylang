@@ -19,15 +19,7 @@ func main() {
 }
 
 func prelude() string {
-	return `package main
-
-import (
-	"os"
-	"fmt"
-    "net/http"
-)
-
-type ResponseWriter = http.ResponseWriter;
+	return `type ResponseWriter = http.ResponseWriter;
 type Request = http.Request;
 
 func HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
@@ -117,11 +109,32 @@ func bs(s string) []byte {
 `
 }
 
+func separateStatements(module Module) ([]Statement, []ImportStmt) {
+	var imports []ImportStmt
+	var rest []Statement
+	for _, statement := range module.Statements {
+		if statement.NodeType() == ImportStmtNodeType {
+			imports = append(imports, statement.(ImportStmt))
+		} else {
+			rest = append(rest, statement)
+		}
+	}
+	return rest, imports
+}
+
 func Compile(module Module) string {
 	var b strings.Builder
+	b.WriteString("package main\n\n")
+
+	rest, imports := separateStatements(module)
+	for _, imp := range imports {
+		compileImportStmt(&b, imp)
+		b.WriteByte('\n')
+	}
+
 	b.WriteString(prelude())
 	b.WriteString("\n\n")
-	for _, statement := range module.Statements {
+	for _, statement := range rest {
 		compileStatement(&b, statement)
 		b.WriteByte('\n')
 	}
@@ -166,10 +179,17 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileReturn(b, s.(ReturnExpr))
 	case BinaryOpNodeType:
 		compileBinaryOp(b, s.(BinaryOpExpr))
+	case ImportStmtNodeType:
+		compileImportStmt(b, s.(ImportStmt))
 	default:
 		panic(fmt.Sprintf("don't know how to compile node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileImportStmt(b *strings.Builder, stmt ImportStmt) {
+	b.WriteString("import ")
+	b.WriteString(stmt.Path)
 }
 
 func compileBinaryOp(b *strings.Builder, expr BinaryOpExpr) {
