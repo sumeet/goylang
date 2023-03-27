@@ -13,9 +13,7 @@ func main() {
 		panic(err)
 	}
 	tokens := lex(dat)
-	//println(fmt.Sprintf("%#v\n", tokens))
 	module := parse(tokens)
-	//println(fmt.Sprintf("%#v\n", module))
 	s := Compile(module)
 	fmt.Println(s)
 }

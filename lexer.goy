@@ -216,7 +216,7 @@ func parseProgram(tokens []Token) Program {
 
 
 func main() {
-    HandleFunc("/", func(w, r) {
+    HandleFunc("/", func(w ResponseWriter, r *Request) {
         w.Write(bs("hello, world!"))
     })
     ListenAndServe(":8080", nil)
