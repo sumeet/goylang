@@ -194,15 +194,15 @@ func parseProgram(tokens []Token) Program {
 	return p
 }
 
-//func parseEnum(tokens []Token) (Enum, []Token) {
+//func parseEnum(tokens []Token) (Enum, Token) {
 //	e := Enum{}
 //	thisToken := Token{}
-//	match (g(tokens, 0).Type) {
-//		TokenType.EnumDecl{}: {
-//			//e.Name, tokens = parseIdent(tokens)
-//		},
-//	}
-//	return e, tokens
+//	//match (g(tokens, 0).Type) {
+//	//	TokenType.EnumDecl{}: {
+//	//		e.Name, tokens = consumeToken(tokens, TokenType.Ident)
+//	//	},
+//	//}
+//	//return e, tokens
 //}
 
 //func consumeToken(tokens []Token, expectedType TokenType) []Token {
@@ -222,7 +222,7 @@ struct Invalid {}
 
 
 func main() {
-    http.HandleFunc("/", func(w, r) {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         w.Write(bs("hello, world!"))
     })
     http.ListenAndServe(":8080", nil)
