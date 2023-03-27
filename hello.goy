@@ -7,9 +7,17 @@ enum Color {
     Other,
 }
 
+func x () {
+    println("Hello, world!")
+}
+
 func main() {
+    http := sdf
     r := Color.Red { 123 }
     o := Color.Other {}
+    http.HandleFunc("/", func(w, r) {
+        w.Write(bs("hello, world!"))
+    }
     match (r) {
         Color.Other: println("Other"),
         Color.Red { x }: {

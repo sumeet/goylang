@@ -518,6 +518,47 @@ func parseEnumDecl(tokens []Token) (Enum, []Token) {
 	return enum, tokens
 }
 
+func Walk(n Node, fn func(Node)) {
+	fn(n)
+	for _, child := range n.Children() {
+		Walk(child, fn)
+	}
+}
+
+func toAnnotated(root Node) AnnotatedNode {
+	var newRoot AnnotatedNode
+	Walk(root, func(node Node) {
+		if _, ok := node.(AnnotatedNode); ok {
+			panic("should not have been annotated already")
+		} else {
+			newRoot = constructAnnotatedNode(node)
+		}
+	})
+	return newRoot
+}
+
+type AnnotatedNode struct {
+	Node  Node
+	Scope *Scope
+}
+
+type Scope struct {
+	Parent *Scope
+	Values map[string]Type
+}
+
+func (a AnnotatedNode) Children() []Node {
+	return a.Node.Children()
+}
+
+func (a AnnotatedNode) NodeType() NodeType {
+	return a.NodeType()
+}
+
+func constructAnnotatedNode(node Node) AnnotatedNode {
+	return AnnotatedNode{Node: node}
+}
+
 func consumeEnumVariant(tokens []Token) (Variant, []Token) {
 	var thisToken Token
 	thisToken, tokens = consumeToken(tokens, Ident)
