@@ -176,7 +176,7 @@ type FunctionDeclaration struct {
 	ReturnType *Type
 }
 
-func (_ *Struct) Children() []Node                        { panic("implement_me") }
+func (x *Struct) Children() []Node                        { return []Node{} }
 func (_ *Struct) NodeType() NodeType                      { return StructNodeType }
 func (_ *Struct) _is_top_level_declaration()              {}
 func (_ *Enum) NodeType() NodeType                        { return EnumNodeType }
@@ -188,8 +188,8 @@ func (_ *ImportStmt) _is_top_level_declaration()          {}
 func (f *FunctionDeclaration) Children() []Node           { return f.Body.Children() }
 func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
 func (_ *FunctionDeclaration) _is_top_level_declaration() {}
-func (_ *FunctionDeclaration) _is_statement() {} // HACK
-func (_ *FunctionDeclaration) ExprType() ExprType { return FunctionExprType }
+func (_ *FunctionDeclaration) _is_statement()             {} // HACK
+func (_ *FunctionDeclaration) ExprType() ExprType         { return FunctionExprType }
 
 // ) Top-level declarations ====================================================
 
@@ -279,7 +279,7 @@ type ArrayAccess struct {
 	Left  Expr
 	Right Expr
 }
-type Type struct { Name string }
+type Type struct{ Name string }
 
 func (b *Block) ExprType() ExprType { return BlockExprType }
 func (b *Block) NodeType() NodeType { return BlockNodeType }
@@ -333,18 +333,26 @@ func (_ *BreakExpr) Children() []Node           { return []Node{} }
 func (_ *BreakExpr) NodeType() NodeType         { return BreakNodeType }
 func (_ *BreakExpr) ExprType() ExprType         { return BreakExprType }
 func (_ *BreakExpr) _is_statement()             {}
-func (_ *WhileExpr) Children() []Node           { panic("implement me") }
+func (x *WhileExpr) Children() []Node           { return []Node{x.Body} }
 func (_ *WhileExpr) NodeType() NodeType         { return WhileNodeType }
 func (_ *WhileExpr) ExprType() ExprType         { return WhileExprType }
 func (_ *WhileExpr) _is_statement()             {}
-func (_ *ContinueExpr) Children() []Node        { panic("implement me") }
+func (_ *ContinueExpr) Children() []Node        { return []Node{} }
 func (_ *ContinueExpr) NodeType() NodeType      { return ContinueNodeType }
 func (_ *ContinueExpr) ExprType() ExprType      { return ContinueExprType }
 func (_ *ContinueExpr) _is_statement()          {}
-func (_ *IfExpr) Children() []Node              { panic("implement me") }
-func (_ *IfExpr) NodeType() NodeType            { return IfNodeType }
-func (_ *IfExpr) ExprType() ExprType            { return IfExprType }
-func (_ *IfExpr) _is_statement()                {}
+func (x *IfExpr) Children() []Node {
+	ret := make([]Node, 0, 3)
+	ret = append(ret, x.Cond)
+	ret = append(ret, x.IfBody)
+	if x.ElseBody != nil {
+		ret = append(ret, *x.ElseBody)
+	}
+	return ret
+}
+func (_ *IfExpr) NodeType() NodeType { return IfNodeType }
+func (_ *IfExpr) ExprType() ExprType { return IfExprType }
+func (_ *IfExpr) _is_statement()     {}
 func (r *ReturnExpr) Children() []Node {
 	var children []Node
 	for _, expr := range r.Exprs {
@@ -369,14 +377,14 @@ func (i *InitializerExpr) Children() []Node {
 func (_ *InitializerExpr) NodeType() NodeType { return InitializerNodeType }
 func (_ *InitializerExpr) ExprType() ExprType { return InitializerExprType }
 func (_ *InitializerExpr) _is_statement()     {}
-func (a *ArrayAccess) Children() []Node { panic("implement me") }
-func (_ *ArrayAccess) NodeType() NodeType { return ArrayAccessNodeType }
-func (_ *ArrayAccess) ExprType() ExprType { return ArrayAccessExprType }
-func (_ *ArrayAccess) _is_statement() {}
-func (_ *Type) Children() []Node { panic("implement me") }
-func (_ *Type) NodeType() NodeType { panic("implement me") }
-func (_ *Type) ExprType() ExprType { return TypeExprType }
-func (_ *Type) _is_statement() {}
+func (x *ArrayAccess) Children() []Node       { return []Node{x.Left, x.Right} }
+func (_ *ArrayAccess) NodeType() NodeType     { return ArrayAccessNodeType }
+func (_ *ArrayAccess) ExprType() ExprType     { return ArrayAccessExprType }
+func (_ *ArrayAccess) _is_statement()         {}
+func (_ *Type) Children() []Node              { panic("implement me") }
+func (_ *Type) NodeType() NodeType            { panic("implement me") }
+func (_ *Type) ExprType() ExprType            { return TypeExprType }
+func (_ *Type) _is_statement()                {}
 
 // ) Expressions ===============================================================
 
