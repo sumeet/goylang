@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	pr "github.com/kr/pretty"
 	"golang.org/x/tools/go/packages"
 	"os"
 	"strings"
@@ -35,17 +36,19 @@ func main() {
 	}
 	tokens := lex(dat)
 	module := parse(tokens)
+	annotated_module := toAnnotated(&module)
 	typeAnalysis := typeAnalyze(module)
 	_ = typeAnalysis
 	s := Compile(module)
 	fmt.Println(s)
+	pr.Print(annotated_module)
 }
 
 type TypeAnalysis struct {
 }
 
 func typeAnalyze(module Module) TypeAnalysis {
-	a := toAnnotated(module)
+	a := toAnnotated(&module)
 	_ = a
 	return TypeAnalysis{}
 }
@@ -118,14 +121,15 @@ func bs(s string) []byte {
 `
 }
 
-func separateStatements(module Module) ([]Statement, []ImportStmt) {
-	var imports []ImportStmt
-	var rest []Statement
-	for _, statement := range module.Statements {
-		if statement.NodeType() == ImportStmtNodeType {
-			imports = append(imports, statement.(ImportStmt))
-		} else {
-			rest = append(rest, statement)
+func gather_imports(module Module) ([]TopLevelDeclaration, []*ImportStmt) {
+	var imports []*ImportStmt
+	var rest []TopLevelDeclaration
+	for _, declaration := range module.Declarations {
+		switch st := declaration.(type) {
+		case *ImportStmt:
+			imports = append(imports, st)
+		default:
+			rest = append(rest, declaration)
 		}
 	}
 	return rest, imports
@@ -135,68 +139,72 @@ func Compile(module Module) string {
 	var b strings.Builder
 	b.WriteString("package main\n\n")
 
-	rest, imports := separateStatements(module)
+	declarations, imports := gather_imports(module)
 	for _, imp := range imports {
-		compileImportStmt(&b, imp)
+		compile_import(&b, *imp)
 		b.WriteByte('\n')
 	}
 
 	b.WriteString(prelude())
 	b.WriteString("\n\n")
-	for _, statement := range rest {
-		compileStatement(&b, statement)
+	for _, declaration := range declarations {
+		compile_declaration(&b, declaration)
 		b.WriteByte('\n')
 	}
 	return b.String()
 }
 
+func compile_declaration(b *strings.Builder, tld TopLevelDeclaration) {
+	switch d := tld.(type) {
+	case *ImportStmt:
+		panic("compile_declaration: ImportStmt should be handled via gather_imports")
+	case *Enum:
+		compileEnum(b, *d)
+	case *Struct:
+		compileStruct(b, *d)
+	case *FunctionDeclaration:
+		compileFunction(b, *d)
+	default:
+		panic(fmt.Sprintf("compile_declaration: unrecognized node type %s", tld.NodeType().ToString()))
+	}
+}
+
 func compileStatement(b *strings.Builder, s Statement) {
-	switch s.NodeType() {
-	case ModuleNodeType:
-		panic("module node type should not be compiled through this function")
-	case BlockNodeType:
-		compileBlock(b, s.(Block))
-	case AssignmentStmtNodeType:
-		compileAssignmentStmt(b, s.(AssignmentStmt))
-	case ReassignmentStmtNodeType:
-		compileReassignmentStmt(b, s.(ReassignmentStmt))
-	case StringLiteralExprNodeType:
-		compileStringLiteralExpr(b, s.(StringLiteralExpr))
-	case FuncCallExprNodeType:
-		compileFuncCallExpr(b, s.(FuncCallExpr))
-	case IntLiteralExprNodeType:
-		compileIntLiteralExpr(b, s.(IntLiteralExpr))
-	case VarRefExprNodeType:
-		compileVarRefExpr(b, s.(VarRefExpr))
-	case FunctionNodeType:
-		compileFunction(b, s.(Function))
-	case EnumNodeType:
-		compileEnum(b, s.(Enum))
-	case MatchNodeType:
-		compileMatch(b, s.(MatchStmt))
-	case StructNodeType:
-		compileStruct(b, s.(Struct))
-	case WhileNodeType:
-		compileWhile(b, s.(WhileExpr))
-	case BreakNodeType:
-		compileBreak(b, s.(BreakExpr))
-	case ContinueNodeType:
-		compileContinue(b, s.(ContinueExpr))
-	case IfNodeType:
-		compileIf(b, s.(IfExpr))
-	case ReturnNodeType:
-		compileReturn(b, s.(ReturnExpr))
-	case BinaryOpNodeType:
-		compileBinaryOp(b, s.(BinaryOpExpr))
-	case ImportStmtNodeType:
-		compileImportStmt(b, s.(ImportStmt))
+	switch st := s.(type) {
+	case *Block:
+		compileBlock(b, *st)
+	case *AssignmentStmt:
+		compileAssignmentStmt(b, *st)
+	case *ReassignmentStmt:
+		compileReassignmentStmt(b, *st)
+	case *IntLiteralExpr:
+		compileIntLiteralExpr(b, *st)
+	case *StringLiteralExpr:
+		compileStringLiteralExpr(b, *st)
+	case *VarRefExpr:
+		compileVarRefExpr(b, *st)
+	case *FuncCallExpr:
+		compileFuncCallExpr(b, *st)
+	case *MatchStmt:
+		compileMatch(b, *st)
+	case *WhileExpr:
+		compileWhile(b, *st)
+	case *BreakExpr:
+		compileBreak(b, *st)
+	case *ContinueExpr:
+		compileContinue(b, *st)
+	case *IfExpr:
+		compileIf(b, *st)
+	case *ReturnExpr:
+		compileReturn(b, *st)
+	case *BinaryOpExpr:
+		compileBinaryOp(b, *st)
 	default:
 		panic(fmt.Sprintf("don't know how to compile node type %s", s.NodeType().ToString()))
 	}
-	return
 }
 
-func compileImportStmt(b *strings.Builder, stmt ImportStmt) {
+func compile_import(b *strings.Builder, stmt ImportStmt) {
 	b.WriteString("import ")
 	b.WriteString(stmt.Path)
 }
@@ -262,26 +270,25 @@ func compileStruct(b *strings.Builder, strukt Struct) {
 	b.WriteString("}\n")
 }
 
-func golangTypeNameWithBindingsThingTODORename(e Expr) (string, *string) {
-	switch e.ExprType() {
-	case DotAccessExprType:
+func golangTypeNameWithBindingsThingTODORename(exp Expr) (string, *string) {
+	switch e := exp.(type) {
+	case *DotAccessExpr:
 		var s strings.Builder
 		compileInitializerLHS(&s, e)
 		return s.String(), nil
-	case InitializerExprType:
-		i := e.(InitializerExpr)
+	case *InitializerExpr:
 		var s strings.Builder
-		compileInitializerLHS(&s, i.Type)
-		if len(i.Args) == 1 {
-			v := i.Args[0].(VarRefExpr).VarName
+		compileInitializerLHS(&s, e.Type)
+		if len(e.Args) == 1 {
+			v := e.Args[0].(*VarRefExpr).VarName
 			return s.String(), &v
-		} else if len(i.Args) > 1 {
+		} else if len(e.Args) > 1 {
 			panic("initializer with more than one arg in binding")
 		} else {
 			return s.String(), nil
 		}
 	}
-	panic(fmt.Sprintf("unable to get golang type name for expr %#v", e))
+	panic(fmt.Sprintf("unable to get golang type name for expr %#v", exp))
 }
 
 func stfuUnusedVars(b *strings.Builder, varName string) {
@@ -329,7 +336,7 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 }
 
 var CompiledEnums []Enum
-var CompiledFuncs map[string]Function = make(map[string]Function)
+var CompiledFuncs map[string]FunctionDeclaration = make(map[string]FunctionDeclaration)
 
 func findEnumInTable(name string) *Enum {
 	for _, e := range CompiledEnums {
@@ -340,7 +347,7 @@ func findEnumInTable(name string) *Enum {
 	return nil
 }
 
-func findFuncInTable(name string) *Function {
+func findFuncInTable(name string) *FunctionDeclaration {
 	f, ok := CompiledFuncs[name]
 	if !ok {
 		return nil
@@ -411,32 +418,30 @@ func compileEnumStructs(b *strings.Builder, enum Enum) {
 	}
 }
 
-func compileExpr(b *strings.Builder, e Expr) {
-	switch e.ExprType() {
-	case StringLiteralExprType:
-		compileStringLiteralExpr(b, e.(StringLiteralExpr))
-	case FuncCallExprType:
-		compileFuncCallExpr(b, e.(FuncCallExpr))
-	case IntLiteralExprType:
-		compileIntLiteralExpr(b, e.(IntLiteralExpr))
-	case VarRefExprType:
-		compileVarRefExpr(b, e.(VarRefExpr))
-	case DotAccessExprType:
-		compileDotAccessExpr(b, e.(DotAccessExpr))
-	case InitializerExprType:
-		compileInitializerExpr(b, e.(InitializerExpr))
-	case BlockExprType:
-		compileBlock(b, e.(Block))
-	case WhileExprType:
-		compileWhile(b, e.(WhileExpr))
-	case IfExprType:
-		compileIf(b, e.(IfExpr))
-	case ArrayAccessExprType:
-		compileArrayAccess(b, e.(ArrayAccess))
-	case BinaryOpExprType:
-		compileBinaryOp(b, e.(BinaryOpExpr))
-	case FuncDeclExprType:
-		compileFunction(b, e.(Function))
+func compileExpr(b *strings.Builder, exp Expr) {
+	switch e := exp.(type) {
+	case *StringLiteralExpr:
+		compileStringLiteralExpr(b, *e)
+	case *FuncCallExpr:
+		compileFuncCallExpr(b, *e)
+	case *IntLiteralExpr:
+		compileIntLiteralExpr(b, *e)
+	case *VarRefExpr:
+		compileVarRefExpr(b, *e)
+	case *DotAccessExpr:
+		compileDotAccessExpr(b, *e)
+	case *InitializerExpr:
+		compileInitializerExpr(b, *e)
+	case *Block:
+		compileBlock(b, *e)
+	case *WhileExpr:
+		compileWhile(b, *e)
+	case *IfExpr:
+		compileIf(b, *e)
+	case *ArrayAccess:
+		compileArrayAccess(b, *e)
+	case *BinaryOpExpr:
+		compileBinaryOp(b, *e)
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}
@@ -449,10 +454,10 @@ func compileArrayAccess(b *strings.Builder, ac ArrayAccess) {
 	b.WriteString("]")
 }
 
-func getVarName(e Expr) *string {
-	switch e.ExprType() {
-	case VarRefExprType:
-		vn := e.(VarRefExpr).VarName
+func getVarName(exp Expr) *string {
+	switch e := exp.(type) {
+	case *VarRefExpr:
+		vn := e.VarName
 		return &vn
 	default:
 		return nil
@@ -658,7 +663,7 @@ func compileVarRefExpr(b *strings.Builder, expr VarRefExpr) {
 	b.WriteString(expr.VarName)
 }
 
-func compileFunction(b *strings.Builder, f Function) {
+func compileFunction(b *strings.Builder, f FunctionDeclaration) {
 	CompiledFuncs[f.Name] = f
 
 	b.WriteString("func ")

@@ -1,6 +1,6 @@
-import "net/http"
-import "os"
-import "fmt"
+// import "net/http"
+// import "os"
+// import "fmt"
 
 enum TokenType {
 	FuncDecl,
@@ -222,10 +222,10 @@ struct Invalid {}
 
 
 func main() {
-    http.HandleFunc("/", func(w, r) {
-        w.Write(bs("hello, world!"))
-    })
-    http.ListenAndServe(":8080", nil)
+    // http.HandleFunc("/", func(w, r) {
+    //     w.Write(bs("hello, world!"))
+    // })
+    // http.ListenAndServe(":8080", nil)
 
 	a := 3 - 3
 
