@@ -532,10 +532,17 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 		wrappedChild := toAnnotatedAux(child, scope)
 		wrappedChildren = append(wrappedChildren, wrappedChild)
 	}
+
+	switch node.(type) {
+	case Function:
+		scope = &Scope{Parent: scope}
+	case Block:
+		scope = &Scope{Parent: scope}
+	}
 	return AnnotatedNode{
-		Node:node,
-		Scope:scope,
-		WrappedChildren:wrappedChildren,
+		Node:            node,
+		Scope:           scope,
+		WrappedChildren: wrappedChildren,
 	}
 }
 
@@ -546,8 +553,8 @@ func toAnnotated(root Node) AnnotatedNode {
 }
 
 type AnnotatedNode struct {
-	Node  Node
-	Scope *Scope
+	Node            Node
+	Scope           *Scope
 	WrappedChildren []AnnotatedNode
 }
 
