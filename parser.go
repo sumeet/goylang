@@ -188,7 +188,11 @@ func (_ *ImportStmt) Children() []Node                    { return []Node{} }
 func (_ *ImportStmt) NodeType() NodeType                  { return ImportStmtNodeType }
 func (_ *ImportStmt) _is_top_level_declaration()          {}
 func (is *ImportStmt) PkgName() string {
-	sp := strings.Split(is.Path, "/")
+	unquoted, err := strconv.Unquote(is.Path)
+	if err != nil {
+		panic(err)
+	}
+	sp := strings.Split(unquoted, "/")
 	return sp[len(sp) - 1]
 }
 func (f *FunctionDeclaration) Children() []Node           { return []Node{&f.Body} }
