@@ -176,79 +176,19 @@ func formatExprType(t ExprType) string {
 	}
 }
 
-type Statement interface {
-	Node
-}
-
-type Expr interface {
-	Statement
-	ExprType() ExprType
-}
-
-type Block struct {
-	Statements []Statement
-}
-
-func (b Block) ExprType() ExprType {
-	return BlockExprType
-}
-
-func (b Block) NodeType() NodeType {
-	return BlockNodeType
-}
-
-func (b Block) Children() []Node {
-	var stmts []Node
-	for _, stmt := range b.Statements {
-		stmts = append(stmts, stmt)
-	}
-	return stmts
-}
-
-type BinaryOpExpr struct {
-	Left  Expr
-	Right Expr
-	Op    string
-}
-
-func (b BinaryOpExpr) Children() []Node {
-	return []Node{b.Left, b.Right}
-}
-
-func (b BinaryOpExpr) NodeType() NodeType {
-	return BinaryOpNodeType
-}
-
-func (b BinaryOpExpr) ExprType() ExprType {
-	return BinaryOpExprType
-}
-
-type Function struct {
-	Name       string
-	Params     []Param
-	Body       Block
-	ReturnType *Type
-}
-
-func (f Function) ExprType() ExprType {
-	return FuncDeclExprType
-}
-
-type Param struct {
-	Name string
-	Type Type
-}
-
-func (f Function) Children() []Node {
-	return f.Body.Children()
-}
-
-func (f Function) NodeType() NodeType {
-	return FunctionNodeType
-}
+/* Top-level declarations ( ====================================================
+ */
 
 type Module struct {
 	Statements []Statement
+}
+type Struct struct {
+	Name   string
+	Fields []StructField
+}
+type StructField struct {
+	Name string
+	Type Type
 }
 
 func (p Module) Children() []Node {
@@ -258,45 +198,66 @@ func (p Module) Children() []Node {
 	}
 	return children
 }
+func (p Module) NodeType() NodeType { return ModuleNodeType }
+func (s Struct) Children() []Node   { panic("implement_me") }
+func (s Struct) NodeType() NodeType { return StructNodeType }
 
-func (p Module) NodeType() NodeType {
-	return ModuleNodeType
-}
+// ) Top-level declarations ====================================================
+
+/* Statements ( ================================================================
+ */
+
+type Statement interface{ Node }
 
 type AssignmentStmt struct {
 	VarNames []string
 	Expr     Expr
 }
-
-func (a AssignmentStmt) NodeType() NodeType {
-	return AssignmentStmtNodeType
+type ReassignmentStmt struct {
+	VarNames []string
+	Expr     Expr
+}
+type ImportStmt struct {
+	Path string
 }
 
-func (a AssignmentStmt) Children() []Node {
-	return []Node{a.Expr}
+func (a AssignmentStmt) NodeType() NodeType   { return AssignmentStmtNodeType }
+func (a AssignmentStmt) Children() []Node     { return []Node{a.Expr} }
+func (r ReassignmentStmt) Children() []Node   { return []Node{r.Expr} }
+func (r ReassignmentStmt) NodeType() NodeType { return ReassignmentStmtNodeType }
+func (i ImportStmt) Children() []Node         { panic("implement me") }
+func (i ImportStmt) NodeType() NodeType       { return ImportStmtNodeType }
+
+// ) Statements ================================================================
+
+/* Expressions ( ===============================================================
+ */
+
+type Expr interface {
+	Statement
+	ExprType() ExprType
 }
 
+type Block struct{ Statements []Statement }
+type BinaryOpExpr struct {
+	Left  Expr
+	Right Expr
+	Op    string
+}
+type Function struct {
+	Name       string
+	Params     []Param
+	Body       Block
+	ReturnType *Type
+}
+type Param struct {
+	Name string
+	Type Type
+}
 type MatchStmt struct {
 	MatchExpr Expr
 	Arms      []MatchArm
 }
-
-func (ms MatchStmt) Children() []Node {
-	var children []Node
-	for _, arm := range ms.Arms {
-		children = append(children, arm)
-	}
-	return children
-}
-
-func (ms MatchStmt) ExprType() ExprType {
-	return MatchExprType
-}
-
-func (ms MatchStmt) NodeType() NodeType {
-	return MatchNodeType
-}
-
 type MatchArm struct {
 	// TODO: when we have a less annoying language to program this in,
 	// Pattern should be an enum with different variants
@@ -305,37 +266,41 @@ type MatchArm struct {
 	Pattern EnumPattern
 	Body    Expr
 }
-
-func (ma MatchArm) Children() []Node {
-	return []Node{ma.Body}
-}
-
-func (ma MatchArm) NodeType() NodeType {
-	return MatchArmNodeType
-}
-
-type EnumPattern struct {
-	Expr Expr
-}
-
-type ReassignmentStmt struct {
-	VarNames []string
-	Expr     Expr
-}
-
-func (r ReassignmentStmt) Children() []Node {
-	return []Node{r.Expr}
-}
-
-func (r ReassignmentStmt) NodeType() NodeType {
-	return ReassignmentStmtNodeType
-}
-
+type EnumPattern struct{ Expr Expr }
 type FuncCallExpr struct {
 	Expr Expr
 	Args []Expr
 }
+type IntLiteralExpr struct{ Value int }
+type StringLiteralExpr struct{ Value string }
+type VarRefExpr struct{ VarName string }
 
+func (b Block) ExprType() ExprType { return BlockExprType }
+func (b Block) NodeType() NodeType { return BlockNodeType }
+func (b Block) Children() []Node {
+	var stmts []Node
+	for _, stmt := range b.Statements {
+		stmts = append(stmts, stmt)
+	}
+	return stmts
+}
+func (b BinaryOpExpr) Children() []Node   { return []Node{b.Left, b.Right} }
+func (b BinaryOpExpr) NodeType() NodeType { return BinaryOpNodeType }
+func (b BinaryOpExpr) ExprType() ExprType { return BinaryOpExprType }
+func (f Function) ExprType() ExprType     { return FuncDeclExprType }
+func (f Function) Children() []Node       { return f.Body.Children() }
+func (f Function) NodeType() NodeType     { return FunctionNodeType }
+func (ms MatchStmt) Children() []Node {
+	var children []Node
+	for _, arm := range ms.Arms {
+		children = append(children, arm)
+	}
+	return children
+}
+func (ms MatchStmt) ExprType() ExprType { return MatchExprType }
+func (ms MatchStmt) NodeType() NodeType { return MatchNodeType }
+func (ma MatchArm) Children() []Node    { return []Node{ma.Body} }
+func (ma MatchArm) NodeType() NodeType  { return MatchArmNodeType }
 func (f FuncCallExpr) Children() []Node {
 	var children []Node
 	for _, arg := range f.Args {
@@ -343,95 +308,19 @@ func (f FuncCallExpr) Children() []Node {
 	}
 	return children
 }
+func (f FuncCallExpr) NodeType() NodeType      { return FuncCallExprNodeType }
+func (_ FuncCallExpr) ExprType() ExprType      { return FuncCallExprType }
+func (_ IntLiteralExpr) Children() []Node      { return []Node{} }
+func (_ IntLiteralExpr) NodeType() NodeType    { return IntLiteralExprNodeType }
+func (_ IntLiteralExpr) ExprType() ExprType    { return IntLiteralExprType }
+func (s StringLiteralExpr) Children() []Node   { return []Node{} }
+func (s StringLiteralExpr) NodeType() NodeType { return StringLiteralExprNodeType }
+func (s StringLiteralExpr) ExprType() ExprType { return StringLiteralExprType }
+func (v VarRefExpr) Children() []Node          { return []Node{} }
+func (v VarRefExpr) NodeType() NodeType        { return VarRefExprNodeType }
+func (v VarRefExpr) ExprType() ExprType        { return VarRefExprType }
 
-func (f FuncCallExpr) NodeType() NodeType {
-	return FuncCallExprNodeType
-}
-
-func (_ FuncCallExpr) ExprType() ExprType {
-	return FuncCallExprType
-}
-
-type IntLiteralExpr struct {
-	Value int
-}
-
-func (_ IntLiteralExpr) Children() []Node {
-	return []Node{}
-}
-
-func (_ IntLiteralExpr) NodeType() NodeType {
-	return IntLiteralExprNodeType
-}
-
-func (_ IntLiteralExpr) ExprType() ExprType {
-	return IntLiteralExprType
-}
-
-type StringLiteralExpr struct {
-	Value string
-}
-
-func (s StringLiteralExpr) Children() []Node {
-	return []Node{}
-}
-
-func (s StringLiteralExpr) NodeType() NodeType {
-	return StringLiteralExprNodeType
-}
-
-func (s StringLiteralExpr) ExprType() ExprType {
-	return StringLiteralExprType
-}
-
-type VarRefExpr struct {
-	VarName string
-}
-
-func (v VarRefExpr) Children() []Node {
-	return []Node{}
-}
-
-func (v VarRefExpr) NodeType() NodeType {
-	return VarRefExprNodeType
-}
-
-func (v VarRefExpr) ExprType() ExprType {
-	return VarRefExprType
-}
-
-type Struct struct {
-	Name   string
-	Fields []StructField
-}
-
-func (s Struct) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s Struct) NodeType() NodeType {
-	//TODO implement me
-	return StructNodeType
-}
-
-type StructField struct {
-	Name string
-	Type Type
-}
-
-type ImportStmt struct {
-	Path string
-}
-
-func (i ImportStmt) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i ImportStmt) NodeType() NodeType {
-	return ImportStmtNodeType
-}
+// ) Expressions ===============================================================
 
 func parse(tokens []Token) (program Module) {
 	for len(tokens) > 0 {
