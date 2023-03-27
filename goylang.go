@@ -270,8 +270,8 @@ func compileStruct(b *strings.Builder, strukt Struct) {
 	b.WriteString("}\n")
 }
 
-func golangTypeNameWithBindingsThingTODORename(exp Expr) (string, *string) {
-	switch e := exp.(type) {
+func golangTypeNameWithBindingsThingTODORename(expr Expr) (string, *string) {
+	switch e := expr.(type) {
 	case *DotAccessExpr:
 		var s strings.Builder
 		compileInitializerLHS(&s, e)
@@ -288,7 +288,7 @@ func golangTypeNameWithBindingsThingTODORename(exp Expr) (string, *string) {
 			return s.String(), nil
 		}
 	}
-	panic(fmt.Sprintf("unable to get golang type name for expr %#v", exp))
+	panic(fmt.Sprintf("unable to get golang type name for expr %#v", expr))
 }
 
 func stfuUnusedVars(b *strings.Builder, varName string) {
@@ -418,8 +418,8 @@ func compileEnumStructs(b *strings.Builder, enum Enum) {
 	}
 }
 
-func compileExpr(b *strings.Builder, exp Expr) {
-	switch e := exp.(type) {
+func compileExpr(b *strings.Builder, expr Expr) {
+	switch e := expr.(type) {
 	case *StringLiteralExpr:
 		compileStringLiteralExpr(b, *e)
 	case *FuncCallExpr:
@@ -454,8 +454,8 @@ func compileArrayAccess(b *strings.Builder, ac ArrayAccess) {
 	b.WriteString("]")
 }
 
-func getVarName(exp Expr) *string {
-	switch e := exp.(type) {
+func getVarName(expr Expr) *string {
+	switch e := expr.(type) {
 	case *VarRefExpr:
 		vn := e.VarName
 		return &vn
@@ -467,7 +467,7 @@ func getVarName(exp Expr) *string {
 func compileDotAccessExpr(b *strings.Builder, expr DotAccessExpr) {
 	vn := getVarName(expr.Left)
 	if vn != nil && findEnumInTable(*vn) != nil {
-		compileInitializerLHS(b, expr)
+		compileInitializerLHS(b, &expr)
 	} else {
 		compileExpr(b, expr.Left)
 		b.WriteString(".")
@@ -490,15 +490,14 @@ func compileInitializerExpr(b *strings.Builder, expr InitializerExpr) {
 // TODO: this feels funny. feels like instead we should just be able to
 // guessType(expr) and then Type -> Golang type
 func guessGolangTypeName(expr Expr) string {
-	switch expr.ExprType() {
-	case DotAccessExprType:
-		dotAccessExpr := expr.(DotAccessExpr)
-		if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+	switch e := expr.(type) {
+	case *DotAccessExpr:
+		if e.Left.NodeType() != VarRefExprNodeType {
 			break
 		}
-		return dotAccessExpr.Left.(VarRefExpr).VarName
-	case VarRefExprType:
-		return expr.(VarRefExpr).VarName
+		return e.Left.(*VarRefExpr).VarName
+	case *VarRefExpr:
+		return e.VarName
 	}
 	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
 }
@@ -508,21 +507,19 @@ func compileType(b *strings.Builder, t Type) {
 }
 
 func compileInitializerLHS(b *strings.Builder, expr Expr) {
-	switch expr.ExprType() {
-	case DotAccessExprType:
-		dotAccessExpr := expr.(DotAccessExpr)
-		if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+	switch e := expr.(type) {
+	case *DotAccessExpr:
+		if e.Left.NodeType() != VarRefExprNodeType {
 			break
 		}
-		leftNode := dotAccessExpr.Left.(VarRefExpr)
-		rightNodeName := dotAccessExpr.Right
+		leftNode := e.Left.(*VarRefExpr)
+		rightNodeName := e.Right
 		b.WriteString(leftNode.VarName)
 		b.WriteString(rightNodeName)
-	case TypeExprType:
-		compileType(b, expr.(Type))
-	case VarRefExprType:
-		varRef := expr.(VarRefExpr)
-		b.WriteString(varRef.VarName)
+	case *Type:
+		compileType(b, *e)
+	case *VarRefExpr:
+		b.WriteString(e.VarName)
 	default:
 		panic(fmt.Sprintf("unknown initializer LHS type %#v", expr))
 	}
@@ -579,7 +576,7 @@ func compileAssignmentStmt(b *strings.Builder, stmt AssignmentStmt) {
 }
 
 func getTypeForFuncCall(funcCall FuncCallExpr) string {
-	varRef, ok := funcCall.Expr.(VarRefExpr)
+	varRef, ok := funcCall.Expr.(*VarRefExpr)
 	if !ok {
 		panic(fmt.Sprintf("expected var ref expr for func call %#v", funcCall))
 	}
@@ -598,22 +595,20 @@ func getTypeForFuncCall(funcCall FuncCallExpr) string {
 
 // TODO: delete if this keeps being unused for longer periods of time 3/26/2023
 func guessType(expr Expr) string {
-	switch expr.ExprType() {
-	case StringLiteralExprType:
+	switch e := expr.(type) {
+	case *StringLiteralExpr:
 		return "string"
-	case FuncCallExprType:
-		funcCall := expr.(FuncCallExpr)
-		return getTypeForFuncCall(funcCall)
-	case IntLiteralExprType:
+	case *FuncCallExpr:
+		return getTypeForFuncCall(*e)
+	case *IntLiteralExpr:
 		return "int"
-	case VarRefExprType:
+	case *VarRefExpr:
 		panic(fmt.Sprintf("can't guess type for var ref %#v", expr))
-	case InitializerExprType:
-		init := expr.(InitializerExpr)
-		if typ, ok := init.Type.(Type); ok {
+	case *InitializerExpr:
+		if typ, ok := e.Type.(*Type); ok {
 			return typ.Name
 		} else {
-			return guessGolangTypeName(init.Type)
+			return guessGolangTypeName(e.Type)
 		}
 		//case DotAccessExprType:
 		//	dotAccessExpr := expr.(DotAccessExpr)
