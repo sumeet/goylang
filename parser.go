@@ -521,16 +521,28 @@ func parseEnumDecl(tokens []Token) (Enum, []Token) {
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	children := node.Children()
 	wrappedChildren := make([]AnnotatedNode, 0, len(children))
-	for _, child := range children {
-		wrappedChild := toAnnotatedAux(child, scope)
-		wrappedChildren = append(wrappedChildren, wrappedChild)
-	}
 
 	switch node.(type) {
 	case Function:
 		scope = NewScope(scope)
+	}
+
+	switch node.(type) {
 	case Block:
-		scope = NewScope(scope)
+		block_scope := scope
+		for _, child := range children {
+			switch child.(type) {
+			case AssignmentStmt:
+				block_scope = NewScope(block_scope)
+			}
+			wrappedChild := toAnnotatedAux(child, block_scope)
+			wrappedChildren = append(wrappedChildren, wrappedChild)
+		}
+	default:
+		for _, child := range children {
+			wrappedChild := toAnnotatedAux(child, scope)
+			wrappedChildren = append(wrappedChildren, wrappedChild)
+		}
 	}
 
 	return AnnotatedNode{
