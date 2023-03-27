@@ -525,21 +525,30 @@ func Walk(n Node, fn func(Node)) {
 	}
 }
 
+func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
+	children := node.Children()
+	wrappedChildren := make([]AnnotatedNode, 0, len(children))
+	for _, child := range children {
+		wrappedChild := toAnnotatedAux(child, scope)
+		wrappedChildren = append(wrappedChildren, wrappedChild)
+	}
+	return AnnotatedNode{
+		Node:node,
+		Scope:scope,
+		WrappedChildren:wrappedChildren,
+	}
+}
+
 func toAnnotated(root Node) AnnotatedNode {
-	var newRoot AnnotatedNode
-	Walk(root, func(node Node) {
-		if _, ok := node.(AnnotatedNode); ok {
-			panic("should not have been annotated already")
-		} else {
-			newRoot = constructAnnotatedNode(node)
-		}
-	})
-	return newRoot
+	root_scope := &Scope{}
+	new_root := toAnnotatedAux(root, root_scope)
+	return new_root
 }
 
 type AnnotatedNode struct {
 	Node  Node
 	Scope *Scope
+	WrappedChildren []AnnotatedNode
 }
 
 type Scope struct {
@@ -548,7 +557,7 @@ type Scope struct {
 }
 
 func (a AnnotatedNode) Children() []Node {
-	return a.Node.Children()
+	panic("don't use this")
 }
 
 func (a AnnotatedNode) NodeType() NodeType {
