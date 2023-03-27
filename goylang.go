@@ -37,8 +37,8 @@ func main() {
 	tokens := lex(dat)
 	module := parse(tokens)
 	annotated_module := toAnnotated(&module)
-	typeAnalysis := typeAnalyze(module)
-	_ = typeAnalysis
+	// typeAnalysis := typeAnalyze(module)
+	// _ = typeAnalysis
 	s := Compile(module)
 	fmt.Println(s)
 	pr.Print(annotated_module)

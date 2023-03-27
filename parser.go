@@ -508,8 +508,7 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 }
 
 func toAnnotated(root Node) AnnotatedNode {
-	rootScope := &Scope{}
-	rootScope.Values = make(map[string]AnnotatedNode)
+	rootScope := NewScope(nil)
 	newRoot := toAnnotatedAux(root, rootScope)
 	return newRoot
 }
