@@ -146,10 +146,20 @@ func compileStatement(b *strings.Builder, s Statement) {
 		compileIf(b, s.(IfExpr))
 	case ReturnNodeType:
 		compileReturn(b, s.(ReturnExpr))
+	case BinaryOpNodeType:
+		compileBinaryOp(b, s.(BinaryOpExpr))
 	default:
 		panic(fmt.Sprintf("don't know how to compile node type %s", s.NodeType().ToString()))
 	}
 	return
+}
+
+func compileBinaryOp(b *strings.Builder, expr BinaryOpExpr) {
+	compileExpr(b, expr.Left)
+	b.WriteString(" ")
+	b.WriteString(expr.Op)
+	b.WriteString(" ")
+	compileExpr(b, expr.Right)
 }
 
 func compileReturn(b *strings.Builder, ret ReturnExpr) {
@@ -376,6 +386,8 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileIf(b, e.(IfExpr))
 	case ArrayAccessExprType:
 		compileArrayAccess(b, e.(ArrayAccess))
+	case BinaryOpExprType:
+		compileBinaryOp(b, e.(BinaryOpExpr))
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}

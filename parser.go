@@ -31,6 +31,7 @@ const (
 	ElseNodeType
 	ReturnNodeType
 	ArrayAccessNodeType
+	BinaryOpNodeType
 )
 
 type DotAccessExpr struct {
@@ -110,6 +111,8 @@ func (n NodeType) ToString() string {
 		return "ElseNodeType"
 	case ReturnNodeType:
 		return "ReturnNodeType"
+	case BinaryOpNodeType:
+		return "BinaryOpNodeType"
 	default:
 		panic(fmt.Sprintf("unknown node type %d", n))
 	}
@@ -137,6 +140,7 @@ const (
 	ContinueExprType
 	IfExprType
 	ArrayAccessExprType
+	BinaryOpExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -161,6 +165,8 @@ func formatExprType(t ExprType) string {
 		return "ContinueExprType"
 	case WhileExprType:
 		return "WhileExprType"
+	case BinaryOpExprType:
+		return "BinaryOpExprType"
 	default:
 		panic(fmt.Sprintf("unknown expr type %d", t))
 	}
@@ -193,6 +199,24 @@ func (b Block) Children() []Node {
 		stmts = append(stmts, stmt)
 	}
 	return stmts
+}
+
+type BinaryOpExpr struct {
+	Left  Expr
+	Right Expr
+	Op    string
+}
+
+func (b BinaryOpExpr) Children() []Node {
+	return []Node{b.Left, b.Right}
+}
+
+func (b BinaryOpExpr) NodeType() NodeType {
+	return BinaryOpNodeType
+}
+
+func (b BinaryOpExpr) ExprType() ExprType {
+	return BinaryOpExprType
 }
 
 type Function struct {
@@ -613,6 +637,16 @@ type ParseExprOpts struct {
 	SkipMatch bool
 }
 
+func consumeBinaryOperator(leftNode Expr, tokens []Token) (BinaryOpExpr, []Token) {
+	var thisToken Token
+	var expr BinaryOpExpr
+	expr.Left = leftNode
+	thisToken, tokens = consumeToken(tokens, BinaryOp)
+	expr.Op = thisToken.Value
+	expr.Right, tokens = parseExpr(tokens)
+	return expr, tokens
+}
+
 func parseExpr(tokens []Token) (Expr, []Token) {
 	old := func() (Expr, []Token) {
 		var maybeIntLiteral *IntLiteralExpr
@@ -697,6 +731,12 @@ post:
 	// handle array access
 	if len(tokens) > 0 && tokens[0].Type == LBracket {
 		node, tokens = consumeArrayAccess(node, tokens)
+		goto post
+	}
+
+	// handle binary operators
+	if len(tokens) > 0 && tokens[0].Type == BinaryOp {
+		node, tokens = consumeBinaryOperator(node, tokens)
 		goto post
 	}
 

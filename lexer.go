@@ -174,6 +174,17 @@ func isNumeric(b byte) bool {
 	return b >= '0' && b <= '9'
 }
 
+var BinaryOps = []string{"+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||"}
+
+func peekAnyBinOp(dat []byte, i int) *string {
+	for _, binOp := range BinaryOps {
+		if bytes.HasPrefix(dat[i:], []byte(binOp)) {
+			return &binOp
+		}
+	}
+	return nil
+}
+
 func lex(dat []byte) []Token {
 	var tokens []Token
 
@@ -249,12 +260,13 @@ func lex(dat []byte) []Token {
 		} else if bytes.Compare(dat[i:i+2], []byte{':', '='}) == 0 {
 			tokens = append(tokens, Token{Assignment, string([]byte{dat[i]})})
 			i += 1
-		} else if dat[i] == '=' {
-			tokens = append(tokens, Token{Reassignment, string([]byte{dat[i]})})
 		} else if dat[i] == ':' {
 			tokens = append(tokens, Token{Colon, string([]byte{dat[i]})})
-		} else if dat[i] == '+' {
-			tokens = append(tokens, Token{BinaryOp, string([]byte{dat[i]})})
+		} else if binOp := peekAnyBinOp(dat, i); binOp != nil {
+			tokens = append(tokens, Token{BinaryOp, *binOp})
+			i += len(*binOp) - 1
+		} else if dat[i] == '=' {
+			tokens = append(tokens, Token{Reassignment, string([]byte{dat[i]})})
 		} else if dat[i] == ',' {
 			tokens = append(tokens, Token{Comma, string([]byte{dat[i]})})
 		} else if dat[i] == '"' {
