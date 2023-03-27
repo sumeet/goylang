@@ -163,7 +163,7 @@ func compile_declaration(b *strings.Builder, tld TopLevelDeclaration) {
 	case *Struct:
 		compileStruct(b, *d)
 	case *FunctionDeclaration:
-		compileFunction(b, *d)
+		compile_function_declaration(b, d)
 	default:
 		panic(fmt.Sprintf("compile_declaration: unrecognized node type %s", tld.NodeType().ToString()))
 	}
@@ -336,7 +336,7 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 }
 
 var CompiledEnums []Enum
-var CompiledFuncs map[string]FunctionDeclaration = make(map[string]FunctionDeclaration)
+var CompiledFuncs map[string]*FunctionDeclaration = make(map[string]*FunctionDeclaration)
 
 func findEnumInTable(name string) *Enum {
 	for _, e := range CompiledEnums {
@@ -352,7 +352,7 @@ func findFuncInTable(name string) *FunctionDeclaration {
 	if !ok {
 		return nil
 	} else {
-		return &f
+		return f
 	}
 }
 
@@ -442,9 +442,18 @@ func compileExpr(b *strings.Builder, expr Expr) {
 		compileArrayAccess(b, *e)
 	case *BinaryOpExpr:
 		compileBinaryOp(b, *e)
+	case *FunctionDeclaration:
+		compile_anonymous_function_expr(b, e)
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}
+}
+
+func compile_anonymous_function_expr(b *strings.Builder, declaration *FunctionDeclaration) {
+	if len(declaration.Name) > 0 {
+		panic(fmt.Sprintf("compile_anonymous_function_type: expected anonymous function; found named function with name %s", declaration.Name))
+	}
+	compile_named_or_anonymous_function_aux(b, declaration)
 }
 
 func compileArrayAccess(b *strings.Builder, ac ArrayAccess) {
@@ -658,9 +667,12 @@ func compileVarRefExpr(b *strings.Builder, expr VarRefExpr) {
 	b.WriteString(expr.VarName)
 }
 
-func compileFunction(b *strings.Builder, f FunctionDeclaration) {
+func compile_function_declaration(b *strings.Builder, f *FunctionDeclaration) {
 	CompiledFuncs[f.Name] = f
+	compile_named_or_anonymous_function_aux(b, f)
+}
 
+func compile_named_or_anonymous_function_aux(b *strings.Builder, f *FunctionDeclaration) {
 	b.WriteString("func ")
 	b.WriteString(f.Name)
 	b.WriteString("(")
