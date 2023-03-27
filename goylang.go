@@ -15,6 +15,7 @@ func main() {
 	tokens := lex(dat)
 	module := parse(tokens)
 	typeAnalysis := typeAnalyze(module)
+	_ = typeAnalysis
 	s := Compile(module)
 	fmt.Println(s)
 }
@@ -24,6 +25,7 @@ type TypeAnalysis struct {
 
 func typeAnalyze(module Module) TypeAnalysis {
 	a := toAnnotated(module)
+	_ = a
 	return TypeAnalysis{}
 }
 

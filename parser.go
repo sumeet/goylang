@@ -535,10 +535,11 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 
 	switch node.(type) {
 	case Function:
-		scope = &Scope{Parent: scope}
+		scope = NewScope(scope)
 	case Block:
-		scope = &Scope{Parent: scope}
+		scope = NewScope(scope)
 	}
+
 	return AnnotatedNode{
 		Node:            node,
 		Scope:           scope,
@@ -547,9 +548,11 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 }
 
 func toAnnotated(root Node) AnnotatedNode {
-	root_scope := &Scope{}
-	new_root := toAnnotatedAux(root, root_scope)
-	return new_root
+	rootScope := &Scope{}
+	rootScope.Values = make(map[string]Node)
+
+	newRoot := toAnnotatedAux(root, rootScope)
+	return newRoot
 }
 
 type AnnotatedNode struct {
@@ -560,7 +563,24 @@ type AnnotatedNode struct {
 
 type Scope struct {
 	Parent *Scope
-	Values map[string]Type
+	Values map[string]Node
+}
+
+func NewScope(parent *Scope) *Scope {
+	return &Scope{
+		Parent: parent,
+		Values: make(map[string]Node),
+	}
+}
+
+func (s *Scope) Lookup(name string) (Node, bool) {
+	if val, ok := s.Values[name]; ok {
+		return val, true
+	} else if s.Parent != nil {
+		return s.Parent.Lookup(name)
+	} else {
+		return Type{}, false
+	}
 }
 
 func (a AnnotatedNode) Children() []Node {
