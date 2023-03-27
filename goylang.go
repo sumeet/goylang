@@ -19,27 +19,8 @@ func main() {
 }
 
 func prelude() string {
-	return `type ResponseWriter = http.ResponseWriter;
-type Request = http.Request;
-
-func HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
-    http.HandleFunc(pattern, handler)
-}
-
-func ListenAndServe(addr string, handler http.Handler) error {
-    return http.ListenAndServe(addr, handler)
-}
-
-func slice[T any](s []T, i, j int) []T {
+	return `func slice[T any](s []T, i, j int) []T {
     return s[i:j]
-}
-
-func readfile(fname string) []byte {
-	dat, err := os.ReadFile(fname)
-	if err != nil {
-		panic(err)
-	}
-	return dat
 }
 
 func isDigit(c byte) bool {
@@ -48,10 +29,6 @@ func isDigit(c byte) bool {
 
 func isAlpha(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
-}
-
-func add(n, m int) int {
-	return n + m
 }
 
 func g[T any](slice []T, i int) T {

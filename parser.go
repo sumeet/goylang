@@ -1046,6 +1046,15 @@ func parseType(tokens []Token) (Type, []Token) {
 	var thisToken Token
 	thisToken, tokens = consumeToken(tokens, Ident)
 	tn = append(tn, []byte(thisToken.Value)...)
+
+	// is it followed by a dot?
+	if peekToken(tokens, Dot) {
+		tn = append(tn, '.')
+		_, tokens = consumeToken(tokens, Dot)
+		thisToken, tokens = consumeToken(tokens, Ident)
+		tn = append(tn, []byte(thisToken.Value)...)
+	}
+
 	typ.Name = string(tn)
 	return typ, tokens
 }
