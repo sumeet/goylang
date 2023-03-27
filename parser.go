@@ -518,13 +518,6 @@ func parseEnumDecl(tokens []Token) (Enum, []Token) {
 	return enum, tokens
 }
 
-func Walk(n Node, fn func(Node)) {
-	fn(n)
-	for _, child := range n.Children() {
-		Walk(child, fn)
-	}
-}
-
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	children := node.Children()
 	wrappedChildren := make([]AnnotatedNode, 0, len(children))
@@ -549,7 +542,7 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 
 func toAnnotated(root Node) AnnotatedNode {
 	rootScope := &Scope{}
-	rootScope.Values = make(map[string]Node)
+	rootScope.Values = make(map[string]AnnotatedNode)
 
 	newRoot := toAnnotatedAux(root, rootScope)
 	return newRoot
@@ -563,13 +556,13 @@ type AnnotatedNode struct {
 
 type Scope struct {
 	Parent *Scope
-	Values map[string]Node
+	Values map[string]AnnotatedNode
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
 		Parent: parent,
-		Values: make(map[string]Node),
+		Values: make(map[string]AnnotatedNode),
 	}
 }
 
