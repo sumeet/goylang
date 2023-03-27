@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
+
 )
 
 type NodeType uint8
@@ -185,7 +187,11 @@ func (_ *Enum) _is_top_level_declaration()                {}
 func (_ *ImportStmt) Children() []Node                    { return []Node{} }
 func (_ *ImportStmt) NodeType() NodeType                  { return ImportStmtNodeType }
 func (_ *ImportStmt) _is_top_level_declaration()          {}
-func (f *FunctionDeclaration) Children() []Node           { return f.Body.Children() }
+func (is *ImportStmt) PkgName() string {
+	sp := strings.Split(is.Path, "/")
+	return sp[len(sp) - 1]
+}
+func (f *FunctionDeclaration) Children() []Node           { return []Node{&f.Body} }
 func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
 func (_ *FunctionDeclaration) _is_top_level_declaration() {}
 func (_ *FunctionDeclaration) _is_statement()             {} // HACK
@@ -477,18 +483,26 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	children := node.Children()
 	wrappedChildren := make([]AnnotatedNode, 0, len(children))
 
-	switch node.(type) {
+	switch n := node.(type) {
+	case *ImportStmt:
+		scope.Values[n.PkgName()] = "import"
 	case *FunctionDeclaration:
 		scope = NewScope(scope)
+		for _, param := range n.Params {
+			scope.Values[param.Name] = "param"
+		}
 	}
 
 	switch node.(type) {
 	case *Block:
 		block_scope := scope
 		for _, child := range children {
-			switch child.(type) {
+			switch c := child.(type) {
 			case *AssignmentStmt:
 				block_scope = NewScope(block_scope)
+				for _, varName := range c.VarNames {
+					block_scope.Values[varName] = "varxxx"
+				}
 			}
 			wrappedChild := toAnnotatedAux(child, block_scope)
 			wrappedChildren = append(wrappedChildren, wrappedChild)
@@ -519,10 +533,11 @@ type AnnotatedNode struct {
 	WrappedChildren []AnnotatedNode
 }
 
-type NodeInfo struct {
-	anode AnnotatedNode
-	type_ string
-}
+type NodeInfo = string
+//type NodeInfo struct {
+//	anode AnnotatedNode
+//	type_ string
+//}
 
 type Scope struct {
 	Parent *Scope
