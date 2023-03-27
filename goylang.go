@@ -381,8 +381,11 @@ func compileExpr(b *strings.Builder, e Expr) {
 	}
 }
 
-func compileArrayAccess(b *strings.Builder, access ArrayAccess) {
-
+func compileArrayAccess(b *strings.Builder, ac ArrayAccess) {
+	compileExpr(b, ac.Left)
+	b.WriteString("[")
+	compileExpr(b, ac.Right)
+	b.WriteString("]")
 }
 
 func getVarName(e Expr) *string {
