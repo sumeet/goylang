@@ -25,6 +25,39 @@ struct Token {
 	Value     string,
 }
 
+func eqany(xs []byte, x byte) bool {
+    imax := len(xs)
+    i := 0
+    while {
+        if (eq(i, imax)) {
+            return false
+        }
+        b := xs[i]
+        if (eq(x, b)) {
+            return true
+        }
+        i = add(i, 1)
+    }
+}
+
+func peekInfixSymbol(dat []byte, start int) string {
+    SymChars := bs("+-*/%=!<>&|")
+    imax := len(dat)
+    i := start
+    while {
+        if (eq(i, imax)) {
+            break
+        }
+        ch := dat[i]
+        if (eqany(SymChars, ch)) {
+            i = add(i, 1)
+        } else {
+            break
+        }
+    }
+    return string(slice(dat, start, i))
+}
+
 func lex(dat []byte) []Token {
 	tokens := []Token{}
 	i := 0
@@ -127,7 +160,13 @@ func lex(dat []byte) []Token {
 			}
 			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
 		} else {
-			panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
+                    str := peekInfixSymbol(dat, i)
+                    if (gt(len(str), 0)) {
+                        tokens = append(tokens, Token{TokenType.BinaryOp{}, str})
+                        i = add(i, len(str))
+                    } else {
+                        panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", g(dat, i), tokens))
+                    }
 		}
 	}
 	return tokens

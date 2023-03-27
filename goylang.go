@@ -28,6 +28,10 @@ import (
 	"fmt"
 )
 
+func slice[T any](s []T, i, j int) []T {
+    return s[i:j]
+}
+
 func readfile(fname string) []byte {
 	dat, err := os.ReadFile(fname)
 	if err != nil {
@@ -58,6 +62,10 @@ func eq[T comparable](x, y T) bool {
 
 func ge(x, y int) bool {
 	return x >= y
+}
+
+func gt(x, y int) bool {
+	return x > y
 }
 
 func or(bs ...bool) bool {

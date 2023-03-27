@@ -176,13 +176,24 @@ func isNumeric(b byte) bool {
 
 var BinaryOps = []string{"+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||"}
 
-func peekAnyBinOp(dat []byte, i int) *string {
-	for _, binOp := range BinaryOps {
-		if bytes.HasPrefix(dat[i:], []byte(binOp)) {
-			return &binOp
+var SymChars = []byte{'+', '-', '*', '/', '%', '=', '!', '<', '>', '&', '|'}
+
+func peekInfixSymbol(dat []byte, i int) string {
+	tail := dat[i:]
+	end_i := 0
+	for {
+		ch := tail[end_i]
+		for _, sch := range SymChars {
+			if ch == sch {
+				end_i += 1
+				goto next
+			}
 		}
+		break
+	next:
 	}
-	return nil
+	symbytes := string(tail[0:end_i])
+	return symbytes
 }
 
 func lex(dat []byte) []Token {
@@ -262,9 +273,9 @@ func lex(dat []byte) []Token {
 			i += 1
 		} else if dat[i] == ':' {
 			tokens = append(tokens, Token{Colon, string([]byte{dat[i]})})
-		} else if binOp := peekAnyBinOp(dat, i); binOp != nil {
-			tokens = append(tokens, Token{BinaryOp, *binOp})
-			i += len(*binOp) - 1
+		} else if binOp := peekInfixSymbol(dat, i); len(binOp) > 0 {
+			tokens = append(tokens, Token{BinaryOp, binOp})
+			i += len(binOp) - 1
 		} else if dat[i] == '=' {
 			tokens = append(tokens, Token{Reassignment, string([]byte{dat[i]})})
 		} else if dat[i] == ',' {
