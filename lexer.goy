@@ -1,6 +1,6 @@
-import "net/http"
-import "os"
-import "fmt"
+// import "net/http"
+// import "os"
+// import "fmt"
 
 enum TokenType {
 	FuncDecl,

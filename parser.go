@@ -35,45 +35,6 @@ const (
 	ImportStmtNodeType
 )
 
-type DotAccessExpr struct {
-	Left  Expr
-	Right string
-}
-
-func (d DotAccessExpr) Children() []Node {
-	return []Node{d.Left}
-}
-
-func (d DotAccessExpr) NodeType() NodeType {
-	return DotAccessNodeType
-}
-
-func (d DotAccessExpr) ExprType() ExprType {
-	return DotAccessExprType
-}
-
-type InitializerExpr struct {
-	Type Expr
-	// TODO: skipping the named params
-	Args []Expr
-}
-
-func (i InitializerExpr) Children() []Node {
-	var children []Node
-	for _, arg := range i.Args {
-		children = append(children, arg)
-	}
-	return children
-}
-
-func (i InitializerExpr) NodeType() NodeType {
-	return InitializerNodeType
-}
-
-func (i InitializerExpr) ExprType() ExprType {
-	return InitializerExprType
-}
-
 func (n NodeType) ToString() string {
 	switch n {
 	case ModuleNodeType:
@@ -93,7 +54,7 @@ func (n NodeType) ToString() string {
 	case VarRefExprNodeType:
 		return "VarRefExpr"
 	case FunctionNodeType:
-		return "Function"
+		return "FunctionDeclaration"
 	case EnumNodeType:
 		return "EnumNodeType"
 	case MatchNodeType:
@@ -144,7 +105,6 @@ const (
 	IfExprType
 	ArrayAccessExprType
 	BinaryOpExprType
-	FuncDeclExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -179,8 +139,25 @@ func formatExprType(t ExprType) string {
 /* Top-level declarations ( ====================================================
  */
 
-type Module struct {
-	Statements []Statement
+type Module struct{ Declarations []TopLevelDeclaration }
+
+func (_ *Module) NodeType() NodeType { return ModuleNodeType }
+func (p *Module) Children() []Node {
+	var children []Node
+	for _, f := range p.Declarations {
+		children = append(children, f)
+	}
+	return children
+}
+
+type TopLevelDeclaration interface {
+	Node
+	_is_top_level_declaration()
+}
+
+type Enum struct {
+	Name     string
+	Variants []Variant
 }
 type Struct struct {
 	Name   string
@@ -190,24 +167,36 @@ type StructField struct {
 	Name string
 	Type Type
 }
-
-func (p Module) Children() []Node {
-	var children []Node
-	for _, f := range p.Statements {
-		children = append(children, f)
-	}
-	return children
+type ImportStmt struct{ Path string }
+type FunctionDeclaration struct {
+	Name       string
+	Params     []Param
+	Body       Block
+	ReturnType *Type
 }
-func (p Module) NodeType() NodeType { return ModuleNodeType }
-func (s Struct) Children() []Node   { panic("implement_me") }
-func (s Struct) NodeType() NodeType { return StructNodeType }
+
+func (_ *Struct) Children() []Node                        { panic("implement_me") }
+func (_ *Struct) NodeType() NodeType                      { return StructNodeType }
+func (_ *Struct) _is_top_level_declaration()              {}
+func (_ *Enum) NodeType() NodeType                        { return EnumNodeType }
+func (_ *Enum) Children() []Node                          { return []Node{} /* TODO: expand on this later */ }
+func (_ *Enum) _is_top_level_declaration()                {}
+func (_ *ImportStmt) Children() []Node                    { return []Node{} }
+func (_ *ImportStmt) NodeType() NodeType                  { return ImportStmtNodeType }
+func (_ *ImportStmt) _is_top_level_declaration()          {}
+func (f *FunctionDeclaration) Children() []Node           { return f.Body.Children() }
+func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
+func (_ *FunctionDeclaration) _is_top_level_declaration() {}
 
 // ) Top-level declarations ====================================================
 
 /* Statements ( ================================================================
  */
 
-type Statement interface{ Node }
+type Statement interface {
+	Node
+	_is_statement()
+}
 
 type AssignmentStmt struct {
 	VarNames []string
@@ -217,16 +206,13 @@ type ReassignmentStmt struct {
 	VarNames []string
 	Expr     Expr
 }
-type ImportStmt struct {
-	Path string
-}
 
-func (a AssignmentStmt) NodeType() NodeType   { return AssignmentStmtNodeType }
-func (a AssignmentStmt) Children() []Node     { return []Node{a.Expr} }
-func (r ReassignmentStmt) Children() []Node   { return []Node{r.Expr} }
-func (r ReassignmentStmt) NodeType() NodeType { return ReassignmentStmtNodeType }
-func (i ImportStmt) Children() []Node         { panic("implement me") }
-func (i ImportStmt) NodeType() NodeType       { return ImportStmtNodeType }
+func (a *AssignmentStmt) NodeType() NodeType   { return AssignmentStmtNodeType }
+func (a *AssignmentStmt) Children() []Node     { return []Node{a.Expr} }
+func (a *AssignmentStmt) _is_statement()       {}
+func (r *ReassignmentStmt) Children() []Node   { return []Node{r.Expr} }
+func (r *ReassignmentStmt) NodeType() NodeType { return ReassignmentStmtNodeType }
+func (r *ReassignmentStmt) _is_statement()     {}
 
 // ) Statements ================================================================
 
@@ -243,12 +229,6 @@ type BinaryOpExpr struct {
 	Left  Expr
 	Right Expr
 	Op    string
-}
-type Function struct {
-	Name       string
-	Params     []Param
-	Body       Block
-	ReturnType *Type
 }
 type Param struct {
 	Name string
@@ -274,51 +254,121 @@ type FuncCallExpr struct {
 type IntLiteralExpr struct{ Value int }
 type StringLiteralExpr struct{ Value string }
 type VarRefExpr struct{ VarName string }
+type BreakExpr struct{}
+type WhileExpr struct{ Body Expr }
+type ContinueExpr struct{}
+type IfExpr struct {
+	Cond     Expr
+	IfBody   Expr
+	ElseBody *Expr
+}
+type ReturnExpr struct{ Exprs []Expr }
+type DotAccessExpr struct {
+	Left  Expr
+	Right string
+}
+type InitializerExpr struct {
+	Type Expr
+	// TODO: skipping the named params
+	Args []Expr
+}
+type ArrayAccess struct {
+	Left  Expr
+	Right Expr
+}
 
-func (b Block) ExprType() ExprType { return BlockExprType }
-func (b Block) NodeType() NodeType { return BlockNodeType }
-func (b Block) Children() []Node {
+func (b *Block) ExprType() ExprType { return BlockExprType }
+func (b *Block) NodeType() NodeType { return BlockNodeType }
+func (b *Block) Children() []Node {
 	var stmts []Node
 	for _, stmt := range b.Statements {
 		stmts = append(stmts, stmt)
 	}
 	return stmts
 }
-func (b BinaryOpExpr) Children() []Node   { return []Node{b.Left, b.Right} }
-func (b BinaryOpExpr) NodeType() NodeType { return BinaryOpNodeType }
-func (b BinaryOpExpr) ExprType() ExprType { return BinaryOpExprType }
-func (f Function) ExprType() ExprType     { return FuncDeclExprType }
-func (f Function) Children() []Node       { return f.Body.Children() }
-func (f Function) NodeType() NodeType     { return FunctionNodeType }
-func (ms MatchStmt) Children() []Node {
+func (_ *Block) _is_statement()            {}
+func (b *BinaryOpExpr) Children() []Node   { return []Node{b.Left, b.Right} }
+func (b *BinaryOpExpr) NodeType() NodeType { return BinaryOpNodeType }
+func (b *BinaryOpExpr) ExprType() ExprType { return BinaryOpExprType }
+func (_ *BinaryOpExpr) _is_statement()     {}
+func (ms *MatchStmt) Children() []Node {
 	var children []Node
 	for _, arm := range ms.Arms {
-		children = append(children, arm)
+		children = append(children, &arm)
 	}
 	return children
 }
-func (ms MatchStmt) ExprType() ExprType { return MatchExprType }
-func (ms MatchStmt) NodeType() NodeType { return MatchNodeType }
-func (ma MatchArm) Children() []Node    { return []Node{ma.Body} }
-func (ma MatchArm) NodeType() NodeType  { return MatchArmNodeType }
-func (f FuncCallExpr) Children() []Node {
+func (ms *MatchStmt) ExprType() ExprType { return MatchExprType }
+func (ms *MatchStmt) NodeType() NodeType { return MatchNodeType }
+func (ms *MatchStmt) _is_statement()     {}
+func (ma *MatchArm) Children() []Node    { return []Node{ma.Body} }
+func (ma *MatchArm) NodeType() NodeType  { return MatchArmNodeType }
+func (f *FuncCallExpr) Children() []Node {
 	var children []Node
 	for _, arg := range f.Args {
 		children = append(children, arg)
 	}
 	return children
 }
-func (f FuncCallExpr) NodeType() NodeType      { return FuncCallExprNodeType }
-func (_ FuncCallExpr) ExprType() ExprType      { return FuncCallExprType }
-func (_ IntLiteralExpr) Children() []Node      { return []Node{} }
-func (_ IntLiteralExpr) NodeType() NodeType    { return IntLiteralExprNodeType }
-func (_ IntLiteralExpr) ExprType() ExprType    { return IntLiteralExprType }
-func (s StringLiteralExpr) Children() []Node   { return []Node{} }
-func (s StringLiteralExpr) NodeType() NodeType { return StringLiteralExprNodeType }
-func (s StringLiteralExpr) ExprType() ExprType { return StringLiteralExprType }
-func (v VarRefExpr) Children() []Node          { return []Node{} }
-func (v VarRefExpr) NodeType() NodeType        { return VarRefExprNodeType }
-func (v VarRefExpr) ExprType() ExprType        { return VarRefExprType }
+func (f *FuncCallExpr) NodeType() NodeType      { return FuncCallExprNodeType }
+func (_ *FuncCallExpr) ExprType() ExprType      { return FuncCallExprType }
+func (_ *FuncCallExpr) _is_statement()          {}
+func (_ *IntLiteralExpr) Children() []Node      { return []Node{} }
+func (_ *IntLiteralExpr) NodeType() NodeType    { return IntLiteralExprNodeType }
+func (_ *IntLiteralExpr) ExprType() ExprType    { return IntLiteralExprType }
+func (_ *IntLiteralExpr) _is_statement()        {}
+func (s *StringLiteralExpr) Children() []Node   { return []Node{} }
+func (s *StringLiteralExpr) NodeType() NodeType { return StringLiteralExprNodeType }
+func (s *StringLiteralExpr) ExprType() ExprType { return StringLiteralExprType }
+func (_ *StringLiteralExpr) _is_statement()     {}
+func (v *VarRefExpr) Children() []Node          { return []Node{} }
+func (v *VarRefExpr) NodeType() NodeType        { return VarRefExprNodeType }
+func (v *VarRefExpr) ExprType() ExprType        { return VarRefExprType }
+func (_ *VarRefExpr) _is_statement()            {}
+func (_ *BreakExpr) Children() []Node           { return []Node{} }
+func (_ *BreakExpr) NodeType() NodeType         { return BreakNodeType }
+func (_ *BreakExpr) ExprType() ExprType         { return BreakExprType }
+func (_ *BreakExpr) _is_statement()             {}
+func (_ *WhileExpr) Children() []Node           { panic("implement me") }
+func (_ *WhileExpr) NodeType() NodeType         { return WhileNodeType }
+func (_ *WhileExpr) ExprType() ExprType         { return WhileExprType }
+func (_ *WhileExpr) _is_statement()             {}
+func (_ *ContinueExpr) Children() []Node        { panic("implement me") }
+func (_ *ContinueExpr) NodeType() NodeType      { return ContinueNodeType }
+func (_ *ContinueExpr) ExprType() ExprType      { return ContinueExprType }
+func (_ *ContinueExpr) _is_statement()          {}
+func (_ *IfExpr) Children() []Node              { panic("implement me") }
+func (_ *IfExpr) NodeType() NodeType            { return IfNodeType }
+func (_ *IfExpr) ExprType() ExprType            { return IfExprType }
+func (_ *IfExpr) _is_statement()                {}
+func (r *ReturnExpr) Children() []Node {
+	var children []Node
+	for _, expr := range r.Exprs {
+		children = append(children, expr)
+	}
+	return children
+}
+func (_ *ReturnExpr) NodeType() NodeType    { return ReturnNodeType }
+func (_ *ReturnExpr) ExprType() ExprType    { panic("implement me") }
+func (_ *ReturnExpr) _is_statement()        {}
+func (d *DotAccessExpr) Children() []Node   { return []Node{d.Left} }
+func (_ *DotAccessExpr) NodeType() NodeType { return DotAccessNodeType }
+func (_ *DotAccessExpr) ExprType() ExprType { return DotAccessExprType }
+func (_ *DotAccessExpr) _is_statement()     {}
+func (i *InitializerExpr) Children() []Node {
+	var children []Node
+	for _, arg := range i.Args {
+		children = append(children, arg)
+	}
+	return children
+}
+func (_ *InitializerExpr) NodeType() NodeType { return InitializerNodeType }
+func (_ *InitializerExpr) ExprType() ExprType { return InitializerExprType }
+func (_ *InitializerExpr) _is_statement()     {}
+func (a *ArrayAccess) Children() []Node { panic("implement me") }
+func (_ *ArrayAccess) NodeType() NodeType { return ArrayAccessNodeType }
+func (_ *ArrayAccess) ExprType() ExprType { return ArrayAccessExprType }
+func (_ *ArrayAccess) _is_statement() {}
 
 // ) Expressions ===============================================================
 
@@ -327,21 +377,21 @@ func parse(tokens []Token) (program Module) {
 		token := tokens[0]
 		switch token.Type {
 		case FuncDecl:
-			var fn Function
-			fn, tokens = parseFuncDecl(tokens)
-			program.Statements = append(program.Statements, fn)
+			var fn FunctionDeclaration
+			fn, tokens = parse_top_level_function_declaration(tokens)
+			program.Declarations = append(program.Declarations, fn)
 		case EnumDecl:
 			var eneom Enum
 			eneom, tokens = parseEnumDecl(tokens)
-			program.Statements = append(program.Statements, eneom)
+			program.Declarations = append(program.Declarations, eneom)
 		case StructDecl:
 			var strukt Struct
 			strukt, tokens = parseStructDecl(tokens)
-			program.Statements = append(program.Statements, strukt)
+			program.Declarations = append(program.Declarations, strukt)
 		case Import:
 			var importStmt ImportStmt
 			importStmt, tokens = parseImportStmt(tokens)
-			program.Statements = append(program.Statements, importStmt)
+			program.Declarations = append(program.Declarations, &importStmt)
 		case Newline:
 			tokens = tokens[1:]
 		default:
@@ -412,16 +462,16 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	wrappedChildren := make([]AnnotatedNode, 0, len(children))
 
 	switch node.(type) {
-	case Function:
+	case *FunctionDeclaration:
 		scope = NewScope(scope)
 	}
 
 	switch node.(type) {
-	case Block:
+	case *Block:
 		block_scope := scope
 		for _, child := range children {
 			switch child.(type) {
-			case AssignmentStmt:
+			case *AssignmentStmt:
 				block_scope = NewScope(block_scope)
 			}
 			wrappedChild := toAnnotatedAux(child, block_scope)
@@ -444,7 +494,6 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 func toAnnotated(root Node) AnnotatedNode {
 	rootScope := &Scope{}
 	rootScope.Values = make(map[string]AnnotatedNode)
-
 	newRoot := toAnnotatedAux(root, rootScope)
 	return newRoot
 }
@@ -503,26 +552,13 @@ func consumeEnumVariant(tokens []Token) (Variant, []Token) {
 	return variant, tokens
 }
 
-type Enum struct {
-	Name     string
-	Variants []Variant
-}
-
-func (e Enum) NodeType() NodeType {
-	return EnumNodeType
-}
-
-func (e Enum) Children() []Node {
-	return []Node{} // TODO: expand on this later
-}
-
 type Variant struct {
 	Name string
 	Type *string
 }
 
-func parseAnonFuncDecl(tokens []Token) (Function, []Token) {
-	var fn Function
+func parseAnonFuncDecl(tokens []Token) (FunctionDeclaration, []Token) {
+	var fn FunctionDeclaration
 	var thisToken Token
 
 	_, tokens = consumeToken(tokens, FuncDecl)
@@ -557,8 +593,8 @@ func parseAnonFuncDecl(tokens []Token) (Function, []Token) {
 	return fn, tokens
 }
 
-func parseFuncDecl(tokens []Token) (Function, []Token) {
-	var fn Function
+func parse_top_level_function_declaration(tokens []Token) (FunctionDeclaration, []Token) {
+	var fn FunctionDeclaration
 	var thisToken Token
 
 	_, tokens = consumeToken(tokens, FuncDecl)
@@ -788,24 +824,6 @@ post:
 	return node, tokens
 }
 
-type ArrayAccess struct {
-	Left  Expr
-	Right Expr
-}
-
-func (a ArrayAccess) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (a ArrayAccess) NodeType() NodeType {
-	return ArrayAccessNodeType
-}
-
-func (a ArrayAccess) ExprType() ExprType {
-	return ArrayAccessExprType
-}
-
 func consumeArrayAccess(node Expr, tokens []Token) (ArrayAccess, []Token) {
 	var ac ArrayAccess
 	ac.Left = node
@@ -813,27 +831,6 @@ func consumeArrayAccess(node Expr, tokens []Token) (ArrayAccess, []Token) {
 	ac.Right, tokens = parseExpr(tokens)
 	_, tokens = consumeToken(tokens, RBracket)
 	return ac, tokens
-}
-
-type ReturnExpr struct {
-	Exprs []Expr
-}
-
-func (r ReturnExpr) Children() []Node {
-	var children []Node
-	for _, expr := range r.Exprs {
-		children = append(children, expr)
-	}
-	return children
-}
-
-func (r ReturnExpr) NodeType() NodeType {
-	return ReturnNodeType
-}
-
-func (r ReturnExpr) ExprType() ExprType {
-	//TODO implement me
-	panic("implement me")
 }
 
 func parseReturn(tokens []Token) (ReturnExpr, []Token) {
@@ -855,25 +852,6 @@ func parseReturn(tokens []Token) (ReturnExpr, []Token) {
 	return ret, tokens
 }
 
-type IfExpr struct {
-	Cond     Expr
-	IfBody   Expr
-	ElseBody *Expr
-}
-
-func (i IfExpr) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (i IfExpr) NodeType() NodeType {
-	return IfNodeType
-}
-
-func (i IfExpr) ExprType() ExprType {
-	return IfExprType
-}
-
 func parseIf(tokens []Token) (IfExpr, []Token) {
 	_, tokens = consumeToken(tokens, If)
 	var ifExpr IfExpr
@@ -892,63 +870,14 @@ func parseIf(tokens []Token) (IfExpr, []Token) {
 	return ifExpr, tokens
 }
 
-type BreakExpr struct {
-}
-
-func (b BreakExpr) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (b BreakExpr) NodeType() NodeType {
-	return BreakNodeType
-}
-
-func (b BreakExpr) ExprType() ExprType {
-	return BreakExprType
-}
-
 func parseBreak(tokens []Token) (BreakExpr, []Token) {
 	_, tokens = consumeToken(tokens, Break)
 	return BreakExpr{}, tokens
 }
 
-type ContinueExpr struct {
-}
-
-func (b ContinueExpr) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c ContinueExpr) NodeType() NodeType {
-	return ContinueNodeType
-}
-
-func (c ContinueExpr) ExprType() ExprType {
-	return ContinueExprType
-}
-
 func parseContinue(tokens []Token) (ContinueExpr, []Token) {
 	_, tokens = consumeToken(tokens, Continue)
 	return ContinueExpr{}, tokens
-}
-
-type WhileExpr struct {
-	Body Expr
-}
-
-func (w WhileExpr) Children() []Node {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (w WhileExpr) NodeType() NodeType {
-	return WhileNodeType
-}
-
-func (w WhileExpr) ExprType() ExprType {
-	return WhileExprType
 }
 
 func parseWhile(tokens []Token) (WhileExpr, []Token) {
