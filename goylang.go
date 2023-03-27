@@ -26,7 +26,19 @@ func prelude() string {
 import (
 	"os"
 	"fmt"
+    "net/http"
 )
+
+type ResponseWriter = http.ResponseWriter;
+type Request = http.Request;
+
+func HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+    http.HandleFunc(pattern, handler)
+}
+
+func ListenAndServe(addr string, handler http.Handler) error {
+    return http.ListenAndServe(addr, handler)
+}
 
 func slice[T any](s []T, i, j int) []T {
     return s[i:j]
@@ -396,6 +408,8 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileArrayAccess(b, e.(ArrayAccess))
 	case BinaryOpExprType:
 		compileBinaryOp(b, e.(BinaryOpExpr))
+	case FuncDeclExprType:
+		compileFunction(b, e.(Function))
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}

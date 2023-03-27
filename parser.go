@@ -141,6 +141,7 @@ const (
 	IfExprType
 	ArrayAccessExprType
 	BinaryOpExprType
+	FuncDeclExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -224,6 +225,10 @@ type Function struct {
 	Params     []Param
 	Body       Block
 	ReturnType *Type
+}
+
+func (f Function) ExprType() ExprType {
+	return FuncDeclExprType
 }
 
 type Param struct {
@@ -516,6 +521,42 @@ type Variant struct {
 	Type *string
 }
 
+func parseAnonFuncDecl(tokens []Token) (Function, []Token) {
+	var fn Function
+	var thisToken Token
+
+	_, tokens = consumeToken(tokens, FuncDecl)
+	_, tokens = consumeToken(tokens, LParen)
+
+	for len(tokens) > 0 {
+		if peekToken(tokens, RParen) {
+			break
+		}
+		var param Param
+		thisToken, tokens = consumeToken(tokens, Ident)
+		param.Name = thisToken.Value
+		param.Type, tokens = parseType(tokens)
+		fn.Params = append(fn.Params, param)
+
+		if peekToken(tokens, RParen) {
+			break
+		}
+
+		_, tokens = consumeToken(tokens, Comma)
+	}
+
+	_, tokens = consumeToken(tokens, RParen)
+
+	if !peekToken(tokens, LCurly) {
+		var returnType Type
+		returnType, tokens = parseType(tokens)
+		fn.ReturnType = &returnType
+	}
+
+	fn.Body, tokens = parseBlock(tokens)
+	return fn, tokens
+}
+
 func parseFuncDecl(tokens []Token) (Function, []Token) {
 	var fn Function
 	var thisToken Token
@@ -697,6 +738,10 @@ func parseExpr(tokens []Token) (Expr, []Token) {
 
 		if tokens[0].Type == Return {
 			return parseReturn(tokens)
+		}
+
+		if tokens[0].Type == FuncDecl {
+			return parseAnonFuncDecl(tokens)
 		}
 
 		// therefore, must be a var reference
@@ -934,6 +979,11 @@ func (s Type) ExprType() ExprType {
 func parseType(tokens []Token) (Type, []Token) {
 	var tn []byte
 	var typ Type
+
+	if peekToken(tokens, BinaryOp) && tokens[0].Value == "*" {
+		tn = append(tn, '*')
+		_, tokens = consumeToken(tokens, BinaryOp)
+	}
 
 	// maybe it's a tuple-like list of multiple return values for a function.
 	// parse naively as a list of type names (rather, don't call this function
