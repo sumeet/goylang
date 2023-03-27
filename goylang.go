@@ -374,9 +374,15 @@ func compileExpr(b *strings.Builder, e Expr) {
 		compileWhile(b, e.(WhileExpr))
 	case IfExprType:
 		compileIf(b, e.(IfExpr))
+	case ArrayAccessExprType:
+		compileArrayAccess(b, e.(ArrayAccess))
 	default:
 		panic(fmt.Sprintf("unable to compile expr: %#v", e))
 	}
+}
+
+func compileArrayAccess(b *strings.Builder, access ArrayAccess) {
+
 }
 
 func getVarName(e Expr) *string {

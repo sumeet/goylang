@@ -30,6 +30,7 @@ const (
 	IfNodeType
 	ElseNodeType
 	ReturnNodeType
+	ArrayAccessNodeType
 )
 
 type DotAccessExpr struct {
@@ -135,6 +136,7 @@ const (
 	BreakExprType
 	ContinueExprType
 	IfExprType
+	ArrayAccessExprType
 )
 
 func formatExprType(t ExprType) string {
@@ -692,7 +694,40 @@ post:
 		goto post
 	}
 
+	// handle array access
+	if len(tokens) > 0 && tokens[0].Type == LBracket {
+		node, tokens = consumeArrayAccess(node, tokens)
+		goto post
+	}
+
 	return node, tokens
+}
+
+type ArrayAccess struct {
+	Left  Expr
+	Right Expr
+}
+
+func (a ArrayAccess) Children() []Node {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a ArrayAccess) NodeType() NodeType {
+	return ArrayAccessNodeType
+}
+
+func (a ArrayAccess) ExprType() ExprType {
+	return ArrayAccessExprType
+}
+
+func consumeArrayAccess(node Expr, tokens []Token) (ArrayAccess, []Token) {
+	var ac ArrayAccess
+	ac.Left = node
+	_, tokens = consumeToken(tokens, LBracket)
+	ac.Right, tokens = parseExpr(tokens)
+	_, tokens = consumeToken(tokens, RBracket)
+	return ac, tokens
 }
 
 type ReturnExpr struct {

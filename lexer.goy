@@ -118,7 +118,7 @@ func lex(dat []byte) []Token {
 					i = add(i, 1)
 					break
 				} else if (nc(dat, i, "\\\"")) {
-					str = append(str, g(dat, i), g(dat, add(i, 1)))
+					str = append(str, dat[i], g(dat, add(i, 1)))
 					i = add(i, 2)
 				} else {
 					str = append(str, g(dat, i))
