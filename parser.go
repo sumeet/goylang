@@ -519,25 +519,30 @@ type AnnotatedNode struct {
 	WrappedChildren []AnnotatedNode
 }
 
+type NodeInfo struct {
+	anode AnnotatedNode
+	type_ string
+}
+
 type Scope struct {
 	Parent *Scope
-	Values map[string]AnnotatedNode
+	Values map[string]NodeInfo
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
 		Parent: parent,
-		Values: make(map[string]AnnotatedNode),
+		Values: make(map[string]NodeInfo),
 	}
 }
 
-func (s *Scope) Lookup(name string) (Node, bool) {
+func (s *Scope) Lookup(name string) (NodeInfo, bool) {
 	if val, ok := s.Values[name]; ok {
 		return val, true
 	} else if s.Parent != nil {
 		return s.Parent.Lookup(name)
 	} else {
-		return &Type{}, false
+		panic(fmt.Sprintf("unbound name %s", name))
 	}
 }
 
