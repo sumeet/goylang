@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
 )
 
 type NodeType uint8
@@ -178,22 +177,22 @@ type FunctionDeclaration struct {
 	ReturnType *Type
 }
 
-func (x *Struct) Children() []Node                        { return []Node{} }
-func (_ *Struct) NodeType() NodeType                      { return StructNodeType }
-func (_ *Struct) _is_top_level_declaration()              {}
-func (_ *Enum) NodeType() NodeType                        { return EnumNodeType }
-func (_ *Enum) Children() []Node                          { return []Node{} /* TODO: expand on this later */ }
-func (_ *Enum) _is_top_level_declaration()                {}
-func (_ *ImportStmt) Children() []Node                    { return []Node{} }
-func (_ *ImportStmt) NodeType() NodeType                  { return ImportStmtNodeType }
-func (_ *ImportStmt) _is_top_level_declaration()          {}
+func (x *Struct) Children() []Node               { return []Node{} }
+func (_ *Struct) NodeType() NodeType             { return StructNodeType }
+func (_ *Struct) _is_top_level_declaration()     {}
+func (_ *Enum) NodeType() NodeType               { return EnumNodeType }
+func (_ *Enum) Children() []Node                 { return []Node{} /* TODO: expand on this later */ }
+func (_ *Enum) _is_top_level_declaration()       {}
+func (_ *ImportStmt) Children() []Node           { return []Node{} }
+func (_ *ImportStmt) NodeType() NodeType         { return ImportStmtNodeType }
+func (_ *ImportStmt) _is_top_level_declaration() {}
 func (is *ImportStmt) PkgName() string {
 	unquoted, err := strconv.Unquote(is.Path)
 	if err != nil {
 		panic(err)
 	}
 	sp := strings.Split(unquoted, "/")
-	return sp[len(sp) - 1]
+	return sp[len(sp)-1]
 }
 func (f *FunctionDeclaration) Children() []Node           { return []Node{&f.Body} }
 func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
@@ -245,7 +244,7 @@ type BinaryOpExpr struct {
 }
 type Param struct {
 	Name string
-	Type Type
+	Type *Type
 }
 type MatchStmt struct {
 	MatchExpr Expr
@@ -538,6 +537,7 @@ type AnnotatedNode struct {
 }
 
 type NodeInfo = string
+
 //type NodeInfo struct {
 //	anode AnnotatedNode
 //	type_ string
@@ -610,7 +610,11 @@ func parseAnonFuncDecl(tokens []Token) (FunctionDeclaration, []Token) {
 		var param Param
 		thisToken, tokens = consumeToken(tokens, Ident)
 		param.Name = thisToken.Value
-		param.Type, tokens = parseType(tokens)
+		if !peekToken(tokens, RParen) && !peekToken(tokens, Comma) {
+			var typ Type
+			typ, tokens = parseType(tokens)
+			param.Type = &typ
+		}
 		fn.Params = append(fn.Params, param)
 
 		if peekToken(tokens, RParen) {
@@ -648,7 +652,9 @@ func parse_top_level_function_declaration(tokens []Token) (FunctionDeclaration, 
 		var param Param
 		thisToken, tokens = consumeToken(tokens, Ident)
 		param.Name = thisToken.Value
-		param.Type, tokens = parseType(tokens)
+		var typ Type
+		typ, tokens = parseType(tokens)
+		param.Type = &typ
 		fn.Params = append(fn.Params, param)
 
 		if peekToken(tokens, RParen) {

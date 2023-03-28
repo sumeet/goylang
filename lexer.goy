@@ -222,7 +222,7 @@ struct Invalid {}
 
 
 func main() {
-    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    http.HandleFunc("/", func(w, r) {
         w.Write(bs("hello, world!"))
     })
     http.ListenAndServe(":8080", nil)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	pr "github.com/kr/pretty"
 	"os"
 	"strings"
 )
@@ -16,12 +15,13 @@ func main() {
 	tokens := lex(dat)
 	module := parse(tokens)
 	annotated_module := toAnnotated(&module)
+	_ = annotated_module
 
 	// typeAnalysis := typeAnalyze(module)
 	// _ = typeAnalysis
 	s := Compile(module)
 	fmt.Println(s)
-	pr.Print(annotated_module)
+	//pr.Print(annotated_module)
 }
 
 type TypeAnalysis struct {
@@ -661,7 +661,11 @@ func compile_named_or_anonymous_function_aux(b *strings.Builder, f *FunctionDecl
 		}
 		b.WriteString(param.Name)
 		b.WriteByte(' ')
-		compileType(b, param.Type)
+		if param.Type == nil {
+			b.WriteString("'elided")
+		} else {
+			compileType(b, *param.Type)
+		}
 	}
 	b.WriteString(") ")
 	if f.ReturnType != nil {
