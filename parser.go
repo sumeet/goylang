@@ -170,10 +170,10 @@ type StructField struct {
 }
 type ImportStmt struct{ Path string }
 type FunctionDeclaration struct {
-	Name       string
-	Params     []Param
-	Body       Block
-	ReturnType *Type
+	Name                      string
+	Params                    []Param
+	Body                      Block
+	ReturnTypeShouldBeAnArray *Type
 }
 
 func (x *Struct) Children() []Node               { return []Node{} }
@@ -579,7 +579,7 @@ func parseAnonFuncDecl(tokens []Token) (FunctionDeclaration, []Token) {
 	if !peekToken(tokens, LCurly) {
 		var returnType Type
 		returnType, tokens = parseType(tokens)
-		fn.ReturnType = &returnType
+		fn.ReturnTypeShouldBeAnArray = &returnType
 	}
 
 	fn.Body, tokens = parseBlock(tokens)
@@ -619,7 +619,7 @@ func parse_top_level_function_declaration(tokens []Token) (FunctionDeclaration, 
 	if !peekToken(tokens, LCurly) {
 		var returnType Type
 		returnType, tokens = parseType(tokens)
-		fn.ReturnType = &returnType
+		fn.ReturnTypeShouldBeAnArray = &returnType
 	}
 
 	fn.Body, tokens = parseBlock(tokens)

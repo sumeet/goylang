@@ -589,8 +589,8 @@ func compile_named_or_anonymous_function_aux(b *strings.Builder, f *FunctionDecl
 		}
 	}
 	b.WriteString(") ")
-	if f.ReturnType != nil {
-		compileType(b, *f.ReturnType)
+	if f.ReturnTypeShouldBeAnArray != nil {
+		compileType(b, *f.ReturnTypeShouldBeAnArray)
 		b.WriteString(" ")
 	}
 	compileBlock(b, f.Body)

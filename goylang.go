@@ -9,29 +9,44 @@ import (
 	"strings"
 )
 
-func typesEqualNeedFixing(a, b Type) bool {
-	if a.Unknown && b.Unknown {
+func typesEqual(a, b Type) bool {
+	if b.Elided {
 		return true
 	}
 
-	if !reflect.DeepEqual(a, b) {
-		if !a.Callable && !b.Callable {
-			return false
-		}
-		if b.Elided {
-			return true
-		}
-		//ability to recover if insides are elided
-		if len(a.CallableArgs) != len(b.CallableArgs) {
-			return false
-		}
-		for i := 0; i < len(a.CallableArgs); i++ {
-			if !typesEqualNeedFixing(*a.CallableArgs[i], *b.CallableArgs[i]) {
-				return false
-			}
-		}
+	if a.Unknown || b.Unknown {
 		return true
 	}
+
+	if reflect.DeepEqual(a, b) {
+		return true
+	}
+
+	if !a.Callable && !b.Callable {
+		return false
+	}
+	//ability to recover if insides are elided
+	if len(a.CallableArgs) != len(b.CallableArgs) {
+		return false
+	}
+	for i := 0; i < len(a.CallableArgs); i++ {
+		if !typesEqual(*a.CallableArgs[i], *b.CallableArgs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func setTypeForFuncDecl(funcDecl *FunctionDeclaration, paramType Type) {
+	if !paramType.Callable {
+		panic("paramType must be callable")
+	}
+	for i := 0; i < len(funcDecl.Params); i++ {
+		param := funcDecl.Params[i]
+		param.Type = paramType.CallableArgs[i]
+	}
+	// TODO: funcDecl.ReturnTypeShouldBeAnArray should be an array
+	funcDecl.ReturnTypeShouldBeAnArray = paramType.CallableReturns[0]
 }
 
 func main() {
@@ -73,9 +88,15 @@ func main() {
 
 					// does guessType have what we need here?
 					// gt has elided args, callableArg has concrete args
-
-					if !gt.Unknown && !callableArg.Unknown && !reflect.DeepEqual(gt, callableArg) {
+					if !typesEqual(*callableArg, *gt) {
 						panic("wrong type of arg")
+					} else {
+						fd, ok := funcCall.Args[i].(*FunctionDeclaration)
+						// the func decl's type can be changed into the guessed type
+						if ok {
+							setTypeForFuncDecl(fd, *gt)
+						}
+						// mutate b to a
 					}
 				}
 				println("callable")
@@ -270,7 +291,7 @@ func funcDeclToType(node *FunctionDeclaration) Type {
 	for i, param := range node.Params {
 		params[i] = param.Type
 	}
-	return newFunType(params, []*Type{node.ReturnType})
+	return newFunType(params, []*Type{node.ReturnTypeShouldBeAnArray})
 }
 
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
