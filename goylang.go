@@ -9,6 +9,31 @@ import (
 	"strings"
 )
 
+func typesEqualNeedFixing(a, b Type) bool {
+	if a.Unknown && b.Unknown {
+		return true
+	}
+
+	if !reflect.DeepEqual(a, b) {
+		if !a.Callable && !b.Callable {
+			return false
+		}
+		if b.Elided {
+			return true
+		}
+		//ability to recover if insides are elided
+		if len(a.CallableArgs) != len(b.CallableArgs) {
+			return false
+		}
+		for i := 0; i < len(a.CallableArgs); i++ {
+			if !typesEqualNeedFixing(*a.CallableArgs[i], *b.CallableArgs[i]) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 func main() {
 	fname := os.Args[1]
 	dat, err := os.ReadFile(fname)
@@ -45,6 +70,10 @@ func main() {
 				}
 				for i, callableArg := range guessedTypeOfFunction.CallableArgs {
 					gt := guessType(funcCall.Args[i], node.Scope)
+
+					// does guessType have what we need here?
+					// gt has elided args, callableArg has concrete args
+
 					if !gt.Unknown && !callableArg.Unknown && !reflect.DeepEqual(gt, callableArg) {
 						panic("wrong type of arg")
 					}
@@ -123,19 +152,24 @@ func guessType(expr Expr, scope *Scope) *Type {
 		return &t
 	// anonymous function decl
 	case *FunctionDeclaration:
-		//if typ, ok := e.LHS.(*LHS); ok {
-		//	return typ.Name
-		//} else {
-		//}
-		//case DotAccessExprType:
-		//	dotAccessExpr := expr.(DotAccessExpr)
-		//	if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
-		//		break
-		//	}
-		//	leftNode := dotAccessExpr.Left.(VarRefExpr)
-		//	rightNodeName := dotAccessExpr.Right
-		//	return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
+		// use funcDeclToType() to get the type
+		decl := expr.(*FunctionDeclaration)
+		ft := funcDeclToType(decl)
+		return &ft
 	}
+	//if typ, ok := e.LHS.(*LHS); ok {
+	//	return typ.Name
+	//} else {
+	//}
+	//case DotAccessExprType:
+	//	dotAccessExpr := expr.(DotAccessExpr)
+	//	if dotAccessExpr.Left.NodeType() != VarRefExprNodeType {
+	//		break
+	//	}
+	//	leftNode := dotAccessExpr.Left.(VarRefExpr)
+	//	rightNodeName := dotAccessExpr.Right
+	//	return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
+
 	panic(fmt.Sprintf("can't guess type for expr: %#v", expr))
 }
 
@@ -236,7 +270,7 @@ func funcDeclToType(node *FunctionDeclaration) Type {
 	for i, param := range node.Params {
 		params[i] = param.Type
 	}
-	return newFunType("function", params, []*Type{node.ReturnType})
+	return newFunType(params, []*Type{node.ReturnType})
 }
 
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {

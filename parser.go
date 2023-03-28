@@ -321,9 +321,8 @@ func newTypeStar(name string) *Type {
 	return &Type{Name: name}
 }
 
-func newFunType(name string, argTypes []*Type, returnTypes []*Type) Type {
+func newFunType(argTypes []*Type, returnTypes []*Type) Type {
 	return Type{
-		Name:            name,
 		Callable:        true,
 		CallableArgs:    argTypes,
 		CallableReturns: returnTypes,
