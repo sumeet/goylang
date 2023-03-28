@@ -284,14 +284,22 @@ type ArrayAccess struct {
 }
 
 type Type struct {
-	Name        string
-	Elided      bool
-	Callable    bool
-	Package     bool
-	PackageName string
-	Args        []*Type
-	Returns     []*Type
-	Unknown     bool
+	Name    string
+	Unknown bool
+	// Enums
+	Elided          bool
+	Callable        bool
+	CallableArgs    []*Type
+	CallableReturns []*Type
+	Package         bool
+	PackageName     string
+	Imported        bool
+	ImportedFrom    string
+}
+
+func (t *Type) SetImportedFrom(path string) {
+	t.Imported = true
+	t.ImportedFrom = path
 }
 
 func newElidedType() *Type {
@@ -315,10 +323,10 @@ func newTypeStar(name string) *Type {
 
 func newFunType(name string, argTypes []*Type, returnTypes []*Type) Type {
 	return Type{
-		Name:     name,
-		Callable: true,
-		Args:     argTypes,
-		Returns:  returnTypes,
+		Name:            name,
+		Callable:        true,
+		CallableArgs:    argTypes,
+		CallableReturns: returnTypes,
 	}
 }
 

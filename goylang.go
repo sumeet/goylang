@@ -27,12 +27,26 @@ func main() {
 	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
 		if node.NodeType() == FuncCallExprNodeType {
 			funcCall := node.Node.(*FuncCallExpr)
-			gt := guessType(funcCall.Expr, node.Scope)
-			if gt == nil {
-				fmt.Printf("nil type for: ")
-				pretty.Println(funcCall)
+
+			guessedType := guessType(funcCall.Expr, node.Scope)
+			if guessedType.Unknown {
+				println("unknown: ")
+				println(fmt.Sprintf("%#v | %#v", funcCall.Expr, guessedType))
 			}
-			pretty.Println(gt)
+			if !guessedType.Callable {
+				println("not callable: ")
+				println(fmt.Sprintf("%#v | %#v", guessedType))
+			} else {
+				println("callable")
+				fmt.Println("-------------------")
+				pretty.Println(guessedType.CallableArgs)
+				fmt.Println("-------------------")
+			}
+			//if guessedType == nil {
+			//	fmt.Printf("nil type for: ")
+			//	pretty.Println(funcCall)
+			//}
+			//pretty.Println(guessedType)
 			//fmt.Printf("%#v\n", guessType(funcCall.Expr, node.Scope))
 		}
 	})
@@ -64,7 +78,7 @@ func getTypeForFuncCall(funcCall FuncCallExpr, scope *Scope) *Type {
 	if !found.Callable {
 		panic(fmt.Sprintf("expected callable type for func call %#v", funcCall))
 	}
-	return found.Returns[0]
+	return found.CallableReturns[0]
 }
 
 func (s *Scope) Lookup(name string) *Type {
@@ -142,38 +156,63 @@ func lookupTypeInNamespace(scope *Scope, left Expr, right string) Type {
 	}
 
 	golangTyp := getTypeForPackage(typ.PackageName, right)
-	ourTyp := golangTypeToType(golangTyp)
+	ourTyp := convertGolangTypToOurTyp(golangTyp)
 	ourTyp.Name = right
 	//panic("got to end of lookupTypeInNamespace")
 	return *ourTyp
 }
 
-func golangTypeToType(golangTyp types.Type) *Type {
-	switch t := golangTyp.(type) {
+func convertGolangTypToOurTyp(golangTyp types.Type) *Type {
+	var res *Type
+
+	switch golangTyp := golangTyp.(type) {
 	case *types.Signature:
-		s := sigToType(t)
-		return &s
+		s := golangFuncSignatureToOurType(golangTyp)
+		res = &s
+		return res
 	default:
-		return newTypeStar(t.String())
+		// TODO: there doesn'golangTyp seem to be a way to get go/types to tell us the package name
+		// separately from the type name, so we're parsing it ourselves for now
+		queriedTypeName := golangTyp.String()
+		isPointer := false
+		if queriedTypeName[0] == '*' {
+			queriedTypeName = queriedTypeName[1:]
+			isPointer = true
+		}
+
+		sep := strings.Split(queriedTypeName, ".")
+		if len(sep) == 1 {
+			res = newTypeStar(sep[0])
+			return res
+		}
+		pkgName := sep[0]
+		symbol := sep[1]
+		if isPointer {
+			symbol = "*" + symbol
+		}
+		res = newTypeStar(symbol)
+		res.SetImportedFrom(pkgName)
+		return res
 	}
-	panic("got to end of golangTypeToType")
+
+	panic("got to end of convertGolangTypToOurTyp")
 }
 
-func sigToType(sig *types.Signature) Type {
+func golangFuncSignatureToOurType(sig *types.Signature) Type {
 	params := make([]*Type, sig.Params().Len())
 	results := make([]*Type, sig.Results().Len())
 	for i := 0; i < sig.Params().Len(); i++ {
 		param := sig.Params().At(i)
-		params[i] = golangTypeToType(param.Type())
+		params[i] = convertGolangTypToOurTyp(param.Type())
 	}
 	for i := 0; i < sig.Results().Len(); i++ {
 		result := sig.Results().At(i)
-		results[i] = golangTypeToType(result.Type())
+		results[i] = convertGolangTypToOurTyp(result.Type())
 	}
 	return Type{
-		Callable: true,
-		Args:     params,
-		Returns:  results,
+		Callable:        true,
+		CallableArgs:    params,
+		CallableReturns: results,
 	}
 }
 

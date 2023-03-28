@@ -7,7 +7,8 @@ import (
 )
 
 func getTypeForPackage(pkgname string, name string) types.Type {
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes}, pkgname)
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes}, pkgname)
 	if err != nil {
 		panic(err)
 	}
