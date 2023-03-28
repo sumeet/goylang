@@ -1,9 +1,26 @@
 package main
 
 import (
+	"go/types"
 	"golang.org/x/tools/go/packages"
 	"path/filepath"
 )
+
+func getTypeForPackage(pkgname string, name string) types.Type {
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes}, pkgname)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, pkg := range pkgs {
+		found := pkg.Types.Scope().Lookup(name)
+		if found != nil {
+			return found.Type()
+		}
+
+	}
+	return nil
+}
 
 func typesForPackage(pkgname string) (map[string]string, error) {
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes}, pkgname)

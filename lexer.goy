@@ -197,7 +197,7 @@ func parseProgram(tokens []Token) Program {
 //func parseEnum(tokens []Token) (Enum, Token) {
 //	e := Enum{}
 //	thisToken := Token{}
-//	//match (g(tokens, 0).Type) {
+//	//match (g(tokens, 0).LHS) {
 //	//	TokenType.EnumDecl{}: {
 //	//		e.Name, tokens = consumeToken(tokens, TokenType.Ident)
 //	//	},
@@ -211,10 +211,10 @@ func parseProgram(tokens []Token) Program {
 //	}
 //	thisToken := Token{}
 //
-//	if eq(g(tokens, 0).Type, expectedType) {
+//	if eq(g(tokens, 0).LHS, expectedType) {
 //		thisToken, tokens = pop(tokens)
 //	} else {
-//		panic(sprintf("Expected %v, got %v", expectedType, g(tokens, 0).Type))
+//		panic(sprintf("Expected %v, got %v", expectedType, g(tokens, 0).LHS))
 //	}
 //}
 

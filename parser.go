@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type NodeType uint8
@@ -187,12 +186,7 @@ func (_ *ImportStmt) Children() []Node           { return []Node{} }
 func (_ *ImportStmt) NodeType() NodeType         { return ImportStmtNodeType }
 func (_ *ImportStmt) _is_top_level_declaration() {}
 func (is *ImportStmt) PkgName() string {
-	unquoted, err := strconv.Unquote(is.Path)
-	if err != nil {
-		panic(err)
-	}
-	sp := strings.Split(unquoted, "/")
-	return sp[len(sp)-1]
+	return packageScopeNameFromPackagePath(is.Path)
 }
 func (f *FunctionDeclaration) Children() []Node           { return []Node{&f.Body} }
 func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
@@ -280,7 +274,7 @@ type DotAccessExpr struct {
 	Right string
 }
 type InitializerExpr struct {
-	Type Expr
+	LHS Expr
 	// TODO: skipping the named params
 	Args []Expr
 }
@@ -290,10 +284,32 @@ type ArrayAccess struct {
 }
 
 type Type struct {
-	Name     string
-	Callable bool
-	Args     []*Type
-	Returns  []*Type
+	Name        string
+	Elided      bool
+	Callable    bool
+	Package     bool
+	PackageName string
+	Args        []*Type
+	Returns     []*Type
+}
+
+func newElidedType() *Type {
+	return &Type{
+		Name:   "elided",
+		Elided: true,
+	}
+}
+
+func newPkgType(name string) Type {
+	return Type{
+		Name:        "package",
+		Package:     true,
+		PackageName: name,
+	}
+}
+
+func newTypeStar(name string) *Type {
+	return &Type{Name: name}
 }
 
 func newFunType(name string, argTypes []*Type, returnTypes []*Type) Type {
@@ -446,7 +462,11 @@ func parseImportStmt(tokens []Token) (ImportStmt, []Token) {
 	var thisToken Token
 	_, tokens = consumeToken(tokens, Import)
 	thisToken, tokens = consumeToken(tokens, StringLiteral)
-	importStmt.Path = thisToken.Value
+	var err error
+	importStmt.Path, err = strconv.Unquote(thisToken.Value)
+	if err != nil {
+		panic(err)
+	}
 	return importStmt, tokens
 }
 
@@ -497,100 +517,6 @@ func parseEnumDecl(tokens []Token) (Enum, []Token) {
 	return enum, tokens
 }
 
-func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
-	children := node.Children()
-	wrappedChildren := make([]AnnotatedNode, 0, len(children))
-
-	switch n := node.(type) {
-	case *ImportStmt:
-		scope.Values[n.PkgName()] = &Type{Name: "package"}
-	case *FunctionDeclaration:
-		oldScope := scope
-
-		paramTypes := make([]*Type, len(n.Params))
-
-		scope = NewScope(scope)
-		for _, param := range n.Params {
-			scope.Values[param.Name] = param.Type
-			paramTypes = append(paramTypes, param.Type)
-		}
-
-		typ := newFunType("function", paramTypes, []*Type{n.ReturnType})
-		oldScope.Values[n.Name] = &typ
-	}
-
-	switch node.(type) {
-	case *Block:
-		block_scope := scope
-		for _, child := range children {
-			switch c := child.(type) {
-			case *AssignmentStmt:
-				block_scope = NewScope(block_scope)
-				for _, varName := range c.VarNames {
-					block_scope.Values[varName] = nil
-				}
-			}
-			wrappedChild := toAnnotatedAux(child, block_scope)
-			wrappedChildren = append(wrappedChildren, wrappedChild)
-		}
-	default:
-		for _, child := range children {
-			wrappedChild := toAnnotatedAux(child, scope)
-			wrappedChildren = append(wrappedChildren, wrappedChild)
-		}
-	}
-
-	return AnnotatedNode{
-		Node:            node,
-		Scope:           scope,
-		WrappedChildren: wrappedChildren,
-	}
-}
-
-func toAnnotated(root Node) AnnotatedNode {
-	rootScope := NewScope(nil)
-	newRoot := toAnnotatedAux(root, rootScope)
-	return newRoot
-}
-
-type AnnotatedNode struct {
-	Node            Node
-	Scope           *Scope
-	WrappedChildren []AnnotatedNode
-}
-
-type Scope struct {
-	Parent *Scope
-	Values map[string]*Type
-}
-
-func NewScope(parent *Scope) *Scope {
-	return &Scope{
-		Parent: parent,
-		Values: make(map[string]*Type),
-	}
-}
-
-type NodeInfo = Type
-
-//func (s *Scope) Lookup(name string) (NodeInfo, bool) {
-//	if val, ok := s.Values[name]; ok {
-//		return val, true
-//	} else if s.Parent != nil {
-//		return s.Parent.Lookup(name)
-//	} else {
-//		panic(fmt.Sprintf("unbound name %s", name))
-//	}
-//}
-
-func (a AnnotatedNode) Children() []Node {
-	panic("don't use this")
-}
-
-func (a AnnotatedNode) NodeType() NodeType {
-	return a.Node.NodeType()
-}
-
 func consumeEnumVariant(tokens []Token) (Variant, []Token) {
 	var thisToken Token
 	thisToken, tokens = consumeToken(tokens, Ident)
@@ -598,7 +524,7 @@ func consumeEnumVariant(tokens []Token) (Variant, []Token) {
 	if len(tokens) > 0 && tokens[0].Type == LParen {
 		_, tokens = consumeToken(tokens, LParen)
 		thisToken, tokens = consumeToken(tokens, Ident)
-		//variant.Type = &Type{Name: thisToken.Value}
+		//variant.LHS = &LHS{Name: thisToken.Value}
 		variant.Type = &thisToken.Value
 		_, tokens = consumeToken(tokens, RParen)
 	}
@@ -628,6 +554,8 @@ func parseAnonFuncDecl(tokens []Token) (FunctionDeclaration, []Token) {
 			var typ Type
 			typ, tokens = parseType(tokens)
 			param.Type = &typ
+		} else {
+			param.Type = newElidedType()
 		}
 		fn.Params = append(fn.Params, param)
 
@@ -1042,7 +970,7 @@ func parsePattern(tokens []Token) (EnumPattern, []Token) {
 func consumeInitializer(node Expr, tokens []Token) (Expr, []Token) {
 	_, tokens = consumeToken(tokens, LCurly)
 	var initializer InitializerExpr
-	initializer.Type = node
+	initializer.LHS = node
 
 	if peekToken(tokens, RCurly) {
 		_, tokens = consumeToken(tokens, RCurly)
