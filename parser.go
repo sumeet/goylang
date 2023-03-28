@@ -288,7 +288,22 @@ type ArrayAccess struct {
 	Left  Expr
 	Right Expr
 }
-type Type struct{ Name string }
+
+type Type struct {
+	Name     string
+	Callable bool
+	Args     []*Type
+	Returns  []*Type
+}
+
+func newFunType(name string, argTypes []*Type, returnTypes []*Type) Type {
+	return Type{
+		Name:     name,
+		Callable: true,
+		Args:     argTypes,
+		Returns:  returnTypes,
+	}
+}
 
 func (b *Block) ExprType() ExprType { return BlockExprType }
 func (b *Block) NodeType() NodeType { return BlockNodeType }
@@ -488,12 +503,20 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 
 	switch n := node.(type) {
 	case *ImportStmt:
-		scope.Values[n.PkgName()] = "import"
+		scope.Values[n.PkgName()] = &Type{Name: "package"}
 	case *FunctionDeclaration:
+		oldScope := scope
+
+		paramTypes := make([]*Type, len(n.Params))
+
 		scope = NewScope(scope)
 		for _, param := range n.Params {
-			scope.Values[param.Name] = "param"
+			scope.Values[param.Name] = param.Type
+			paramTypes = append(paramTypes, param.Type)
 		}
+
+		typ := newFunType("function", paramTypes, []*Type{n.ReturnType})
+		oldScope.Values[n.Name] = &typ
 	}
 
 	switch node.(type) {
@@ -504,7 +527,7 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 			case *AssignmentStmt:
 				block_scope = NewScope(block_scope)
 				for _, varName := range c.VarNames {
-					block_scope.Values[varName] = "varxxx"
+					block_scope.Values[varName] = nil
 				}
 			}
 			wrappedChild := toAnnotatedAux(child, block_scope)
@@ -536,45 +559,36 @@ type AnnotatedNode struct {
 	WrappedChildren []AnnotatedNode
 }
 
-type NodeInfo = string
-
-//type NodeInfo struct {
-//	anode AnnotatedNode
-//	type_ string
-//}
-
 type Scope struct {
 	Parent *Scope
-	Values map[string]NodeInfo
+	Values map[string]*Type
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
 		Parent: parent,
-		Values: make(map[string]NodeInfo),
+		Values: make(map[string]*Type),
 	}
 }
 
-func (s *Scope) Lookup(name string) (NodeInfo, bool) {
-	if val, ok := s.Values[name]; ok {
-		return val, true
-	} else if s.Parent != nil {
-		return s.Parent.Lookup(name)
-	} else {
-		panic(fmt.Sprintf("unbound name %s", name))
-	}
-}
+type NodeInfo = Type
+
+//func (s *Scope) Lookup(name string) (NodeInfo, bool) {
+//	if val, ok := s.Values[name]; ok {
+//		return val, true
+//	} else if s.Parent != nil {
+//		return s.Parent.Lookup(name)
+//	} else {
+//		panic(fmt.Sprintf("unbound name %s", name))
+//	}
+//}
 
 func (a AnnotatedNode) Children() []Node {
 	panic("don't use this")
 }
 
 func (a AnnotatedNode) NodeType() NodeType {
-	return a.NodeType()
-}
-
-func constructAnnotatedNode(node Node) AnnotatedNode {
-	return AnnotatedNode{Node: node}
+	return a.Node.NodeType()
 }
 
 func consumeEnumVariant(tokens []Token) (Variant, []Token) {

@@ -21,7 +21,22 @@ func main() {
 	// _ = typeAnalysis
 	s := Compile(module)
 	fmt.Println(s)
+
+	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
+		if node.NodeType() == FuncCallExprNodeType {
+			funcCall := node.Node.(*FuncCallExpr)
+			fmt.Printf("found a func call: %#v, scope: %#v\n", funcCall.Expr, node.Scope)
+		}
+	})
+
 	//pr.Print(annotated_module)
+}
+
+func WalkAnnotated(node AnnotatedNode, f func(AnnotatedNode)) {
+	f(node)
+	for _, child := range node.WrappedChildren {
+		WalkAnnotated(child, f)
+	}
 }
 
 type TypeAnalysis struct {
