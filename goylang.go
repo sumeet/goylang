@@ -5,6 +5,7 @@ import (
 	"github.com/kr/pretty"
 	"go/types"
 	"os"
+	"reflect"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func main() {
 				}
 				for i, callableArg := range guessedTypeOfFunction.CallableArgs {
 					gt := guessType(funcCall.Args[i], node.Scope)
-					if gt != callableArg {
+					if !gt.Unknown && !callableArg.Unknown && !reflect.DeepEqual(gt, callableArg) {
 						panic("wrong type of arg")
 					}
 				}
@@ -120,6 +121,8 @@ func guessType(expr Expr, scope *Scope) *Type {
 	case *InitializerExpr:
 		t := guessGolangType(e.LHS)
 		return &t
+	// anonymous function decl
+	case *FunctionDeclaration:
 		//if typ, ok := e.LHS.(*LHS); ok {
 		//	return typ.Name
 		//} else {
@@ -228,6 +231,14 @@ func compileVarRefExpr(b *strings.Builder, expr VarRefExpr) {
 	b.WriteString(expr.VarName)
 }
 
+func funcDeclToType(node *FunctionDeclaration) Type {
+	params := make([]*Type, len(node.Params))
+	for i, param := range node.Params {
+		params[i] = param.Type
+	}
+	return newFunType("function", params, []*Type{node.ReturnType})
+}
+
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	children := node.Children()
 	wrappedChildren := make([]AnnotatedNode, 0, len(children))
@@ -238,16 +249,11 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 		scope.TypeBySymbolName[n.PkgName()] = &typ
 	case *FunctionDeclaration:
 		oldScope := scope
-
-		paramTypes := make([]*Type, len(n.Params))
-
+		typ := funcDeclToType(n)
 		scope = NewScope(scope)
 		for _, param := range n.Params {
 			scope.TypeBySymbolName[param.Name] = param.Type
-			paramTypes = append(paramTypes, param.Type)
 		}
-
-		typ := newFunType("function", paramTypes, []*Type{n.ReturnType})
 		oldScope.TypeBySymbolName[n.Name] = &typ
 	}
 
