@@ -171,7 +171,7 @@ func convertGolangTypToOurTyp(golangTyp types.Type) *Type {
 		res = &s
 		return res
 	default:
-		// TODO: there doesn'golangTyp seem to be a way to get go/types to tell us the package name
+		// TODO: there doesn't seem to be a way to get go/types to tell us the package name
 		// separately from the type name, so we're parsing it ourselves for now
 		queriedTypeName := golangTyp.String()
 		isPointer := false
