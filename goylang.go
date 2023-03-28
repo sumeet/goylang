@@ -28,26 +28,31 @@ func main() {
 		if node.NodeType() == FuncCallExprNodeType {
 			funcCall := node.Node.(*FuncCallExpr)
 
-			guessedType := guessType(funcCall.Expr, node.Scope)
-			if guessedType.Unknown {
+			guessedTypeOfFunction := guessType(funcCall.Expr, node.Scope)
+			if guessedTypeOfFunction.Unknown {
 				println("unknown: ")
-				println(fmt.Sprintf("%#v | %#v", funcCall.Expr, guessedType))
-			}
-			if !guessedType.Callable {
-				println("not callable: ")
-				println(fmt.Sprintf("%#v | %#v", guessedType))
+				println(fmt.Sprintf("%#v | %#v", funcCall.Expr, guessedTypeOfFunction))
+			} else if guessedTypeOfFunction.Elided {
+				println("elided: ")
+				println(fmt.Sprintf("%#v | %#v", funcCall.Expr, guessedTypeOfFunction))
+			} else if !guessedTypeOfFunction.Callable {
+				println(fmt.Sprintf("%#v", guessedTypeOfFunction))
+				panic("calling non callable")
 			} else {
+				if len(guessedTypeOfFunction.CallableArgs) != len(funcCall.Args) {
+					panic("wrong number of args")
+				}
+				for i, callableArg := range guessedTypeOfFunction.CallableArgs {
+					gt := guessType(funcCall.Args[i], node.Scope)
+					if gt != callableArg {
+						panic("wrong type of arg")
+					}
+				}
 				println("callable")
 				fmt.Println("-------------------")
-				pretty.Println(guessedType.CallableArgs)
+				pretty.Println(guessedTypeOfFunction.CallableArgs)
 				fmt.Println("-------------------")
 			}
-			//if guessedType == nil {
-			//	fmt.Printf("nil type for: ")
-			//	pretty.Println(funcCall)
-			//}
-			//pretty.Println(guessedType)
-			//fmt.Printf("%#v\n", guessType(funcCall.Expr, node.Scope))
 		}
 	})
 }
@@ -68,6 +73,7 @@ func typeAnalyze(module Module) TypeAnalysis {
 	return TypeAnalysis{}
 }
 
+// TODO: this should fall back to go
 func getTypeForFuncCall(funcCall FuncCallExpr, scope *Scope) *Type {
 	varRef, ok := funcCall.Expr.(*VarRefExpr)
 	if !ok {
@@ -82,7 +88,7 @@ func getTypeForFuncCall(funcCall FuncCallExpr, scope *Scope) *Type {
 }
 
 func (s *Scope) Lookup(name string) *Type {
-	if val, ok := s.Values[name]; ok {
+	if val, ok := s.TypeBySymbolName[name]; ok {
 		return val
 	} else if s.Parent != nil {
 		return s.Parent.Lookup(name)
@@ -108,6 +114,7 @@ func guessType(expr Expr, scope *Scope) *Type {
 			return v
 		}
 	case *DotAccessExpr:
+		////// here is where "elided" "infects" dot accesses
 		t := lookupTypeInNamespace(scope, e.Left, e.Right)
 		return &t
 	case *InitializerExpr:
@@ -145,6 +152,7 @@ func lookupTypeInNamespace(scope *Scope, left Expr, right string) Type {
 		panic(fmt.Sprintf("expected var ref expr for left side of dot access expr: %#v", left))
 	}
 
+	////// here is where "elided" "infects" dot accesses
 	typ := scope.Lookup(nsName)
 	if typ.Elided {
 		return *typ
@@ -227,7 +235,7 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 	switch n := node.(type) {
 	case *ImportStmt:
 		typ := newPkgType(n.Path)
-		scope.Values[n.PkgName()] = &typ
+		scope.TypeBySymbolName[n.PkgName()] = &typ
 	case *FunctionDeclaration:
 		oldScope := scope
 
@@ -235,12 +243,12 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 
 		scope = NewScope(scope)
 		for _, param := range n.Params {
-			scope.Values[param.Name] = param.Type
+			scope.TypeBySymbolName[param.Name] = param.Type
 			paramTypes = append(paramTypes, param.Type)
 		}
 
 		typ := newFunType("function", paramTypes, []*Type{n.ReturnType})
-		oldScope.Values[n.Name] = &typ
+		oldScope.TypeBySymbolName[n.Name] = &typ
 	}
 
 	switch node.(type) {
@@ -251,7 +259,9 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 			case *AssignmentStmt:
 				block_scope = NewScope(block_scope)
 				for _, varName := range c.VarNames {
-					block_scope.Values[varName] = nil
+					block_scope.TypeBySymbolName[varName] = newUnknownType()
+					// TODO: we should be calling guessType here
+					//block_scope.TypeBySymbolName[varName] = guessType(c.Expr, block_scope)
 				}
 			}
 			wrappedChild := toAnnotatedAux(child, block_scope)
@@ -284,14 +294,14 @@ type AnnotatedNode struct {
 }
 
 type Scope struct {
-	Parent *Scope
-	Values map[string]*Type
+	Parent           *Scope
+	TypeBySymbolName map[string]*Type
 }
 
 func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		Parent: parent,
-		Values: make(map[string]*Type),
+		Parent:           parent,
+		TypeBySymbolName: make(map[string]*Type),
 	}
 }
 
