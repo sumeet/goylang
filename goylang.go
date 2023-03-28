@@ -62,12 +62,7 @@ func main() {
 	annotated_module := toAnnotated(&module)
 	_ = annotated_module
 
-	// typeAnalysis := typeAnalyze(module)
-	// _ = typeAnalysis
-	s := Compile(module)
-	fmt.Println(s)
-
-	WalkAnnotated(&annotated_module, func(node *AnnotatedNode) {
+	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
 		if node.NodeType() == FuncCallExprNodeType {
 			funcCall := node.Node.(*FuncCallExpr)
 
@@ -99,8 +94,6 @@ func main() {
 						if ok {
 							setTypeForFuncDecl(fd, *callableArg)
 						}
-
-						funcCall.Args[i] = fd
 					}
 				}
 				println("callable")
@@ -110,12 +103,15 @@ func main() {
 			}
 		}
 	})
+
+	s := Compile(module)
+	fmt.Println(s)
 }
 
-func WalkAnnotated(node *AnnotatedNode, f func(*AnnotatedNode)) {
+func WalkAnnotated(node AnnotatedNode, f func(AnnotatedNode)) {
 	f(node)
 	for _, child := range node.WrappedChildren {
-		WalkAnnotated(&child, f)
+		WalkAnnotated(child, f)
 	}
 }
 
