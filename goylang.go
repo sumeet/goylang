@@ -662,7 +662,7 @@ func compile_named_or_anonymous_function_aux(b *strings.Builder, f *FunctionDecl
 		b.WriteString(param.Name)
 		b.WriteByte(' ')
 		if param.Type == nil {
-			b.WriteString("'elided")
+			b.WriteString("_elided_")
 		} else {
 			compileType(b, *param.Type)
 		}
