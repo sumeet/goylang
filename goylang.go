@@ -42,11 +42,13 @@ func setTypeForFuncDecl(funcDecl *FunctionDeclaration, paramType Type) {
 		panic("paramType must be callable")
 	}
 	for i := 0; i < len(funcDecl.Params); i++ {
-		param := funcDecl.Params[i]
-		param.Type = paramType.CallableArgs[i]
+		funcDecl.Params[i].Type = paramType.CallableArgs[i]
 	}
-	// TODO: funcDecl.ReturnTypeShouldBeAnArray should be an array
-	funcDecl.ReturnTypeShouldBeAnArray = paramType.CallableReturns[0]
+
+	if len(paramType.CallableReturns) > 0 {
+		// TODO: funcDecl.ReturnTypeShouldBeAnArray should be an array
+		funcDecl.ReturnTypeShouldBeAnArray = paramType.CallableReturns[0]
+	}
 }
 
 func main() {
@@ -95,7 +97,7 @@ func main() {
 						// the func decl's type can be changed into the guessed type
 						// mutate b to a
 						if ok {
-							setTypeForFuncDecl(fd, *gt)
+							setTypeForFuncDecl(fd, *callableArg)
 						}
 					}
 				}
