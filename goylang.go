@@ -93,10 +93,10 @@ func main() {
 					} else {
 						fd, ok := funcCall.Args[i].(*FunctionDeclaration)
 						// the func decl's type can be changed into the guessed type
+						// mutate b to a
 						if ok {
 							setTypeForFuncDecl(fd, *gt)
 						}
-						// mutate b to a
 					}
 				}
 				println("callable")
