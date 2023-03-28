@@ -291,6 +291,7 @@ type Type struct {
 	PackageName string
 	Args        []*Type
 	Returns     []*Type
+	Unknown     bool
 }
 
 func newElidedType() *Type {

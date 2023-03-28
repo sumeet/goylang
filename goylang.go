@@ -87,7 +87,12 @@ func guessType(expr Expr, scope *Scope) *Type {
 	case *IntLiteralExpr:
 		return newTypeStar("int")
 	case *VarRefExpr:
-		return scope.Lookup(e.VarName)
+		v := scope.Lookup(e.VarName)
+		if v == nil {
+			return newUnknownType()
+		} else {
+			return v
+		}
 	case *DotAccessExpr:
 		t := lookupTypeInNamespace(scope, e.Left, e.Right)
 		return &t
@@ -108,6 +113,12 @@ func guessType(expr Expr, scope *Scope) *Type {
 		//	return fmt.Sprintf("%s%s", leftNode.VarName, rightNodeName)
 	}
 	panic(fmt.Sprintf("can't guess type for expr: %#v", expr))
+}
+
+func newUnknownType() *Type {
+	return &Type{
+		Unknown: true,
+	}
 }
 
 func lookupTypeInNamespace(scope *Scope, left Expr, right string) Type {
