@@ -158,7 +158,9 @@ func compileStatement(b *strings.Builder, s Statement) {
 
 func compile_import(b *strings.Builder, stmt ImportStmt) {
 	b.WriteString("import ")
-	b.WriteString(stmt.Path)
+	b.WriteString(stmt.ImportedAs)
+	b.WriteString(" ")
+	b.WriteString(stmt.PackagePath)
 }
 
 func compileBinaryOp(b *strings.Builder, expr BinaryOpExpr) {
@@ -464,7 +466,30 @@ func guessGolangType(expr Expr) Type {
 }
 
 func compileType(b *strings.Builder, t Type) {
-	b.WriteString(t.Name)
+	if len(t.Name) == 0 {
+		panic(fmt.Sprintf("compileType: expected type name to be non-empty"))
+	}
+
+	isPointer := false
+	name := t.Name
+
+	// TODO: Pointer should be a field on Type?
+	if t.Name[0] == '*' {
+		isPointer = true
+		name = t.Name[1:]
+	}
+
+	if isPointer {
+		b.WriteString("*")
+	}
+
+	if t.Imported {
+		packageImportedAs := importNameFromPackagePath(t.ImportedFrom)
+		b.WriteString(packageImportedAs)
+		b.WriteString(".")
+	}
+
+	b.WriteString(name)
 }
 
 func compileInitializerLHS(b *strings.Builder, expr Expr) {

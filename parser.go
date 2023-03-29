@@ -168,7 +168,12 @@ type StructField struct {
 	Name string
 	Type Type
 }
-type ImportStmt struct{ Path string }
+
+type ImportStmt struct {
+	PackagePath string
+	ImportedAs  string
+}
+
 type FunctionDeclaration struct {
 	Name                      string
 	Params                    []Param
@@ -176,18 +181,15 @@ type FunctionDeclaration struct {
 	ReturnTypeShouldBeAnArray *Type
 }
 
-func (x *Struct) Children() []Node               { return []Node{} }
-func (_ *Struct) NodeType() NodeType             { return StructNodeType }
-func (_ *Struct) _is_top_level_declaration()     {}
-func (_ *Enum) NodeType() NodeType               { return EnumNodeType }
-func (_ *Enum) Children() []Node                 { return []Node{} /* TODO: expand on this later */ }
-func (_ *Enum) _is_top_level_declaration()       {}
-func (_ *ImportStmt) Children() []Node           { return []Node{} }
-func (_ *ImportStmt) NodeType() NodeType         { return ImportStmtNodeType }
-func (_ *ImportStmt) _is_top_level_declaration() {}
-func (is *ImportStmt) PkgName() string {
-	return packageScopeNameFromPackagePath(is.Path)
-}
+func (x *Struct) Children() []Node                        { return []Node{} }
+func (_ *Struct) NodeType() NodeType                      { return StructNodeType }
+func (_ *Struct) _is_top_level_declaration()              {}
+func (_ *Enum) NodeType() NodeType                        { return EnumNodeType }
+func (_ *Enum) Children() []Node                          { return []Node{} /* TODO: expand on this later */ }
+func (_ *Enum) _is_top_level_declaration()                {}
+func (_ *ImportStmt) Children() []Node                    { return []Node{} }
+func (_ *ImportStmt) NodeType() NodeType                  { return ImportStmtNodeType }
+func (_ *ImportStmt) _is_top_level_declaration()          {}
 func (f *FunctionDeclaration) Children() []Node           { return []Node{&f.Body} }
 func (_ *FunctionDeclaration) NodeType() NodeType         { return FunctionNodeType }
 func (_ *FunctionDeclaration) _is_top_level_declaration() {}
@@ -471,7 +473,8 @@ func parseImportStmt(tokens []Token) (ImportStmt, []Token) {
 	_, tokens = consumeToken(tokens, Import)
 	thisToken, tokens = consumeToken(tokens, StringLiteral)
 	var err error
-	importStmt.Path, err = strconv.Unquote(thisToken.Value)
+	importStmt.PackagePath, err = strconv.Unquote(thisToken.Value)
+	importStmt.ImportedAs = packageScopeNameFromPackagePath(importStmt.PackagePath)
 	if err != nil {
 		panic(err)
 	}

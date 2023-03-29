@@ -51,6 +51,15 @@ func setTypeForFuncDecl(funcDecl *FunctionDeclaration, paramType Type) {
 	}
 }
 
+var PackageNamesToImportNames = map[string]string{}
+
+func importNameFromPackagePath(pkgpath string) string {
+	if name, ok := PackageNamesToImportNames[pkgpath]; ok {
+		return name
+	}
+	panic("no import name for package path: " + pkgpath)
+}
+
 func main() {
 	fname := os.Args[1]
 	dat, err := os.ReadFile(fname)
@@ -61,6 +70,14 @@ func main() {
 	module := parse(tokens)
 	annotated_module := toAnnotated(&module)
 	_ = annotated_module
+
+	// collect import names
+	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
+		if node.NodeType() == ImportStmtNodeType {
+			importStmt := node.Node.(*ImportStmt)
+			PackageNamesToImportNames[importStmt.PackagePath] = importStmt.ImportedAs
+		}
+	})
 
 	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
 		if node.NodeType() == FuncCallExprNodeType {
@@ -257,6 +274,7 @@ func convertGolangTypToOurTyp(golangTyp types.Type) *Type {
 			symbol = "*" + symbol
 		}
 		res = newTypeStar(symbol)
+		// TODO: should this map from FQ package name to imported package name?
 		res.SetImportedFrom(pkgName)
 		return res
 	}
@@ -300,8 +318,8 @@ func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {
 
 	switch n := node.(type) {
 	case *ImportStmt:
-		typ := newPkgType(n.Path)
-		scope.TypeBySymbolName[n.PkgName()] = &typ
+		typ := newPkgType(n.PackagePath)
+		scope.TypeBySymbolName[n.ImportedAs] = &typ
 	case *FunctionDeclaration:
 		oldScope := scope
 		typ := funcDeclToType(n)
