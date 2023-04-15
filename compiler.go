@@ -18,27 +18,6 @@ func isAlpha(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
-func eq[T comparable](x, y T) bool {
-	return x == y
-}
-
-func ge(x, y int) bool {
-	return x >= y
-}
-
-func gt(x, y int) bool {
-	return x > y
-}
-
-func or(bs ...bool) bool {
-	for _, b := range bs {
-		if b {	
-			return true	
-		}	
-	}
-	return false
-}
-
 func c(s string) byte {
 	return s[0]
 }
