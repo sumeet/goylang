@@ -98,13 +98,13 @@ func lex(dat []byte) []Token {
 		} else if (isDigit(dat[i])) {
 		  n := []byte{}
 		  while {
-			if (isDigit(dat[i])) {
-				n = append(n, dat[i])
-				i = i + 1
-			} else {
-			  tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
-			  break
-			}
+        if (isDigit(dat[i])) {
+          n = append(n, dat[i])
+          i = i + 1
+        } else {
+          tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
+          break
+        }
 		  }
 		} else if (nc(dat, i, "{")) {
 			tokens = append(tokens, Token{TokenType.LCurly{}, "{"})
