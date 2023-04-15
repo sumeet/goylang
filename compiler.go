@@ -18,10 +18,6 @@ func isAlpha(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
-func g[T any](slice []T, i int) T {
-	return slice[i]
-}
-
 func eq[T comparable](x, y T) bool {
 	return x == y
 }
@@ -160,7 +156,7 @@ func compile_import(b *strings.Builder, stmt ImportStmt) {
 	b.WriteString("import ")
 	b.WriteString(stmt.ImportedAs)
 	b.WriteString(" ")
-	b.WriteString(stmt.PackagePath)
+	b.WriteString(fmt.Sprintf("%q", stmt.PackagePath))
 }
 
 func compileBinaryOp(b *strings.Builder, expr BinaryOpExpr) {

@@ -1,5 +1,3 @@
-// hello
-
 enum Color {
     Red(int),
     Green(int),
@@ -12,7 +10,6 @@ func x () {
 }
 
 func main() {
-    http := sdf
     r := Color.Red { 123 }
     o := Color.Other {}
     http.HandleFunc("/", func(w, r) {

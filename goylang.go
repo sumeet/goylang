@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/kr/pretty"
 	"go/types"
 	"os"
 	"reflect"
@@ -114,9 +113,6 @@ func main() {
 					}
 				}
 				println("callable")
-				fmt.Println("-------------------")
-				pretty.Println(guessedTypeOfFunction.CallableArgs)
-				fmt.Println("-------------------")
 			}
 		}
 	})
