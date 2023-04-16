@@ -6,8 +6,17 @@ import (
 )
 
 func prelude() string {
-	return `func slice[T any](s []T, i, j int) []T {
-    return s[i:j]
+	return `func slice[T any](s []T, i... int) []T {
+	if len(i) == 0 {
+		return s
+	}
+	if len(i) == 1 {
+		return s[i[0]:]	
+	}
+	if len(i) > 2 {
+		panic("slice takes at most 2 arguments")
+	}
+    return s[i[0]:i[1]]
 }
 
 func isDigit(c byte) bool {
@@ -589,9 +598,17 @@ func compile_named_or_anonymous_function_aux(b *strings.Builder, f *FunctionDecl
 		}
 	}
 	b.WriteString(") ")
-	if f.ReturnTypeShouldBeAnArray != nil {
-		compileType(b, *f.ReturnTypeShouldBeAnArray)
-		b.WriteString(" ")
+	if len(f.ReturnTypes) == 1 {
+		compileType(b, f.ReturnTypes[0])
+	} else if len(f.ReturnTypes) > 1 {
+		b.WriteString("(")
+		for i, returnType := range f.ReturnTypes {
+			if i != 0 {
+				b.WriteString(", ")
+			}
+			compileType(b, returnType)
+		}
+		b.WriteString(") ")
 	}
 	compileBlock(b, f.Body)
 }

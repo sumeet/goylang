@@ -175,10 +175,10 @@ type ImportStmt struct {
 }
 
 type FunctionDeclaration struct {
-	Name                      string
-	Params                    []Param
-	Body                      Block
-	ReturnTypeShouldBeAnArray *Type
+	Name        string
+	Params      []Param
+	Body        Block
+	ReturnTypes []Type
 }
 
 func (x *Struct) Children() []Node                        { return []Node{} }
@@ -289,14 +289,15 @@ type Type struct {
 	Name    string
 	Unknown bool
 	// Enums
-	Elided          bool
-	Callable        bool
-	CallableArgs    []*Type
-	CallableReturns []*Type
-	Package         bool
-	PackageName     string
-	Imported        bool
-	ImportedFrom    string
+	Elided                 bool
+	Callable               bool
+	CallableArgs           []*Type
+	CallableArgsIsVariadic bool
+	CallableReturns        []*Type
+	Package                bool
+	PackageName            string
+	Imported               bool
+	ImportedFrom           string
 }
 
 func (t *Type) SetImportedFrom(path string) {
@@ -580,9 +581,9 @@ func parseAnonFuncDecl(tokens []Token) (FunctionDeclaration, []Token) {
 	_, tokens = consumeToken(tokens, RParen)
 
 	if !peekToken(tokens, LCurly) {
-		var returnType Type
-		returnType, tokens = parseType(tokens)
-		fn.ReturnTypeShouldBeAnArray = &returnType
+		var returnTypes []Type
+		returnTypes, tokens = parseReturnTypes(tokens)
+		fn.ReturnTypes = returnTypes
 	}
 
 	fn.Body, tokens = parseBlock(tokens)
@@ -620,9 +621,9 @@ func parse_top_level_function_declaration(tokens []Token) (FunctionDeclaration, 
 	_, tokens = consumeToken(tokens, RParen)
 
 	if !peekToken(tokens, LCurly) {
-		var returnType Type
-		returnType, tokens = parseType(tokens)
-		fn.ReturnTypeShouldBeAnArray = &returnType
+		var returnTypes []Type
+		returnTypes, tokens = parseReturnTypes(tokens)
+		fn.ReturnTypes = returnTypes
 	}
 
 	fn.Body, tokens = parseBlock(tokens)
@@ -657,7 +658,8 @@ func parseBlock(tokens []Token) (Block, []Token) {
 	return block, tokens
 }
 
-func getLValuesFor(tokens []Token, tokenType TokenType) ([]string, []Token) {
+// TODO: lvalues can be like dot accesses or array accesses
+func getLValues(tokens []Token) ([]string, []Token, TokenType) {
 	origTokens := tokens
 	var lValues []string
 	var thisToken Token
@@ -667,12 +669,16 @@ func getLValuesFor(tokens []Token, tokenType TokenType) ([]string, []Token) {
 			lValues = append(lValues, thisToken.Value)
 			thisToken, tokens = consumeToken(tokens, Comma)
 			continue
-		} else if peekToken(tokens, Ident, tokenType) {
+		} else if peekToken(tokens, Ident, Assignment) {
 			thisToken, tokens = consumeToken(tokens, Ident)
 			lValues = append(lValues, thisToken.Value)
-			return lValues, tokens
+			return lValues, tokens, Assignment
+		} else if peekToken(tokens, Ident, Reassignment) {
+			thisToken, tokens = consumeToken(tokens, Ident)
+			lValues = append(lValues, thisToken.Value)
+			return lValues, tokens, Reassignment
 		} else {
-			return nil, origTokens
+			return nil, origTokens, Assignment // last value doesn't matter, it's an error
 		}
 	}
 	panic("unreachable")
@@ -680,15 +686,19 @@ func getLValuesFor(tokens []Token, tokenType TokenType) ([]string, []Token) {
 
 func parseStatement(tokens []Token) (Statement, []Token) {
 	var lValues []string
-	lValues, tokens = getLValuesFor(tokens, Assignment)
-	if len(lValues) > 0 {
+	var assignType TokenType
+	lValues, tokens, assignType = getLValues(tokens)
+	println("assignType", formatTokenType(assignType))
+	println(fmt.Sprintf("lValues: %#v", lValues))
+	if len(lValues) > 0 && assignType == Assignment {
 		return parseAssignment(tokens, lValues)
-	}
-	lValues, tokens = getLValuesFor(tokens, Reassignment)
-	if len(lValues) > 0 {
+	} else if len(lValues) > 0 && assignType == Reassignment {
 		return parseReassignment(tokens, lValues)
+	} else if len(lValues) > 0 {
+		panic("wrong type of assignment??????")
 	}
 	// else must be an expr
+	println("parsing as expr instead")
 	return parseExpr(tokens)
 }
 
@@ -893,6 +903,27 @@ func parseWhile(tokens []Token) (WhileExpr, []Token) {
 	return w, tokens
 }
 
+func parseReturnTypes(tokens []Token) ([]Type, []Token) {
+	var types []Type
+	if peekToken(tokens, LParen) {
+		_, tokens = consumeToken(tokens, LParen)
+		for !peekToken(tokens, RParen) {
+			var typ Type
+			typ, tokens = parseType(tokens)
+			types = append(types, typ)
+			if peekToken(tokens, Comma) {
+				_, tokens = consumeToken(tokens, Comma)
+			}
+		}
+		_, tokens = consumeToken(tokens, RParen)
+	} else {
+		var typ Type
+		typ, tokens = parseType(tokens)
+		types = append(types, typ)
+	}
+	return types, tokens
+}
+
 func parseType(tokens []Token) (Type, []Token) {
 	var tn []byte
 	var typ Type
@@ -900,27 +931,6 @@ func parseType(tokens []Token) (Type, []Token) {
 	if peekToken(tokens, BinaryOp) && tokens[0].Value == "*" {
 		tn = append(tn, '*')
 		_, tokens = consumeToken(tokens, BinaryOp)
-	}
-
-	// maybe it's a tuple-like list of multiple return values for a function.
-	// parse naively as a list of type names (rather, don't call this function
-	// again for each type, because you can't have a tuple of tuples)
-	if peekToken(tokens, LParen) {
-		_, tokens = consumeToken(tokens, LParen)
-		var thisToken Token
-		thisToken, tokens = consumeToken(tokens, Ident)
-		tn = append(tn, '(')
-		tn = append(tn, []byte(thisToken.Value)...)
-		for peekToken(tokens, Comma) {
-			tn = append(tn, []byte(", ")...)
-			_, tokens = consumeToken(tokens, Comma)
-			thisToken, tokens = consumeToken(tokens, Ident)
-			tn = append(tn, []byte(thisToken.Value)...)
-		}
-		tn = append(tn, ')')
-		_, tokens = consumeToken(tokens, RParen)
-		typ.Name = string(tn)
-		return typ, tokens
 	}
 
 	// maybe it's a slice type

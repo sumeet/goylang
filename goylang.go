@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 	"go/types"
 	"os"
 	"reflect"
@@ -45,8 +46,9 @@ func setTypeForFuncDecl(funcDecl *FunctionDeclaration, paramType Type) {
 	}
 
 	if len(paramType.CallableReturns) > 0 {
-		// TODO: funcDecl.ReturnTypeShouldBeAnArray should be an array
-		funcDecl.ReturnTypeShouldBeAnArray = paramType.CallableReturns[0]
+		funcDecl.ReturnTypes = lo.Map(paramType.CallableReturns, func(t *Type, _ int) Type {
+			return *t
+		})
 	}
 }
 
@@ -92,9 +94,11 @@ func main() {
 			} else if !guessedTypeOfFunction.Callable {
 				println(fmt.Sprintf("%#v", guessedTypeOfFunction))
 				panic("calling non callable")
-			} else {
+			} else if !guessedTypeOfFunction.CallableArgsIsVariadic {
+				// TODO: proper handling of variadics, right now they get a free pass in the type checker
 				if len(guessedTypeOfFunction.CallableArgs) != len(funcCall.Args) {
-					panic("wrong number of args")
+					panic(fmt.Sprintf("wrong number of args: %d vs %d", len(guessedTypeOfFunction.CallableArgs), len(funcCall.Args)))
+					//panic("wrong number of args")
 				}
 				for i, callableArg := range guessedTypeOfFunction.CallableArgs {
 					gt := guessType(funcCall.Args[i], node.Scope)
@@ -190,6 +194,15 @@ func guessType(expr Expr, scope *Scope) *Type {
 		decl := expr.(*FunctionDeclaration)
 		ft := funcDeclToType(decl)
 		return &ft
+	case *ArrayAccess:
+		arrayAccess := expr.(*ArrayAccess)
+		lhsType := guessType(arrayAccess.Left, scope)
+		// HAX, type should know if it's a slice type or not
+		if strings.HasPrefix(lhsType.Name, "[]") {
+			return newTypeStar(strings.TrimPrefix(lhsType.Name, "[]"))
+		} else {
+			panic("couldn't guess type for array access on non array")
+		}
 	}
 	//if typ, ok := e.LHS.(*LHS); ok {
 	//	return typ.Name
@@ -290,9 +303,10 @@ func golangFuncSignatureToOurType(sig *types.Signature) Type {
 		results[i] = convertGolangTypToOurTyp(result.Type())
 	}
 	return Type{
-		Callable:        true,
-		CallableArgs:    params,
-		CallableReturns: results,
+		Callable:               true,
+		CallableArgs:           params,
+		CallableArgsIsVariadic: sig.Variadic(),
+		CallableReturns:        results,
 	}
 }
 
@@ -305,7 +319,9 @@ func funcDeclToType(node *FunctionDeclaration) Type {
 	for i, param := range node.Params {
 		params[i] = param.Type
 	}
-	return newFunType(params, []*Type{node.ReturnTypeShouldBeAnArray})
+	return newFunType(params, lo.Map(node.ReturnTypes, func(_ Type, i int) *Type {
+		return &node.ReturnTypes[i]
+	}))
 }
 
 func toAnnotatedAux(node Node, scope *Scope) AnnotatedNode {

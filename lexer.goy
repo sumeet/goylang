@@ -21,11 +21,12 @@ enum TokenType {
 	Match,
 	Dot,
 	Colon,
+	Import,
 }
 
 struct Token {
 	Type TokenType,
-	Value     string,
+	Value string,
 }
 
 func eqany(xs []byte, x byte) bool {
@@ -41,6 +42,10 @@ func eqany(xs []byte, x byte) bool {
         }
         i = i + 1
     }
+}
+
+func isAlphanumeric(b byte) bool {
+  return isDigit(b) || isAlpha(b)
 }
 
 func peekInfixSymbol(dat []byte, start int) string {
@@ -82,12 +87,14 @@ func lex(dat []byte) []Token {
 		} else if (isAlpha(dat[i])) {
 			ident := []byte{}
 			while {
-				if (isAlpha(dat[i])) {
+				if (isAlphanumeric(dat[i])) {
 					ident = append(ident, dat[i])
 					i = i + 1
 				} else {
 					if (string(ident) == "enum") {
-						tokens = append(tokens, Token{TokenType.EnumDecl{}, "enum"})
+						tokens = append(tokens, Token{TokenType.EnumDecl{}, string(ident)})
+					} else if (string(ident) == "import") {
+						tokens = append(tokens, Token{TokenType.Import{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -98,13 +105,13 @@ func lex(dat []byte) []Token {
 		} else if (isDigit(dat[i])) {
 		  n := []byte{}
 		  while {
-        if (isDigit(dat[i])) {
-          n = append(n, dat[i])
-          i = i + 1
-        } else {
-          tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
-          break
-        }
+			if (isDigit(dat[i])) {
+				n = append(n, dat[i])
+				i = i + 1
+			} else {
+			  tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
+			  break
+			}
 		  }
 		} else if (nc(dat, i, "{")) {
 			tokens = append(tokens, Token{TokenType.LCurly{}, "{"})
@@ -171,54 +178,86 @@ func lex(dat []byte) []Token {
 
 enum Statement {
 	Enum(Enum),
+	Import(Import),
 }
 
 struct Program {
 	Statements []Statement,
 }
 
+struct Import {
+  Name string,
+}
+
 struct Enum {
 	Name string,
 }
 
+func parseImport(tokens []Token) (Import, []Token) {
+  t, tokens := consumeToken(tokens, TokenType.Import{})
+  t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
+  name := t.Value
+  imp := Import{name}
+  panic(fmt.Sprintf("%#v", imp))
+  return imp, tokens
+}
+
+func parseStatement(tokens []Token) (Statement, []Token) {
+	match (tokens[0].Type) {
+		TokenType.Import{}: {
+		  // TODO: workaround for not supporting multiple reassignment (supports multiple assignment...)
+		  imp, tokens := parseImport(tokens)
+		  return Statement.Import { imp }, tokens
+    },
+	//	TokenType.EnumDecl{}: {
+	//		//thisToken, tokens = parseEnum(tokens)
+	//		//p = append(p, Statement.Enum{ parseEnum(tokens) })
+	//	},
+	}
+  panic(fmt.Sprintf("unexpected token: %#v", tokens[0].Type))
+}
+
 func parseProgram(tokens []Token) Program {
 	p := Program{}
-	thisToken := Token{}
-	match (tokens[0].Type) {
-		TokenType.EnumDecl{}: {
-			//thisToken, tokens = parseEnum(tokens)
-			//p = append(p, Statement.Enum{ parseEnum(tokens) })
-		},
+	while {
+	  statement, tokens2 := parseStatement(tokens)
+	  tokens = tokens2
+	  stmts := p.Statements
+	  // TODO: STRIKE NEXT HERE
+	  // need to be able to do dot accesses as lvalues
+	  stmts = append(stmts, statement)
+	  break
 	}
 	return p
 }
 
-//func parseEnum(tokens []Token) (Enum, Token) {
-//	e := Enum{}
-//	thisToken := Token{}
-//	//match (g(tokens, 0).LHS) {
-//	//	TokenType.EnumDecl{}: {
-//	//		e.Name, tokens = consumeToken(tokens, TokenType.Ident)
-//	//	},
-//	//}
-//	//return e, tokens
-//}
+func skipNewlines(tokens []Token) []Token {
+	while {
+	  match (tokens[0].Type) {
+	    TokenType.Newline: {
+	      tokens = slice(tokens, 1)
+	      continue
+      },
+	  }
+	  break
+	}
+	return tokens
+}
 
-//func consumeToken(tokens []Token, expectedType TokenType) []Token {
-//	if eq(len(tokens), 0) {
-//		panic("Unexpected end of input")
-//	}
-//	thisToken := Token{}
-//
-//	if eq(g(tokens, 0).LHS, expectedType) {
-//		thisToken, tokens = pop(tokens)
-//	} else {
-//		panic(sprintf("Expected %v, got %v", expectedType, g(tokens, 0).LHS))
-//	}
-//}
-
-struct Invalid {}
-
+func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
+  if (len(tokens) == 0) {
+    panic("Unexpected end of input")
+  }
+  match (expectedType) {
+    TokenType.Newline: {
+      tokens = skipNewlines(tokens)
+    },
+  }
+  if (tokens[0].Type != expectedType) {
+		panic(fmt.Sprintf("Was expecting token %#v, got %#v", expectedType, tokens[0]))
+  }
+  return tokens[0], slice(tokens, 1)
+}
 
 func main() {
 	dat, err := os.ReadFile("lexer.goy")
@@ -228,4 +267,7 @@ func main() {
 	tokens := lex(dat)
 	print("Tokens:")
 	print(tokens)
+	program := parseProgram(tokens)
+	print("Program:")
+	print(program)
 }

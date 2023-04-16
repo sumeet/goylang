@@ -91,6 +91,8 @@ func formatToken(t Token) string {
 		return "Else"
 	case Return:
 		return "Return"
+	case Import:
+		return "Import"
 	default:
 		panic(fmt.Sprintf("unknown token type %d", t.Type))
 	}
@@ -175,26 +177,19 @@ func isNumeric(b byte) bool {
 	return b >= '0' && b <= '9'
 }
 
-var BinaryOps = []string{"+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||"}
+func isAlphanumeric(b byte) bool {
+	return isAlpha(b) || isNumeric(b)
+}
 
-var SymChars = []byte{'+', '-', '*', '/', '%', '=', '!', '<', '>', '&', '|'}
+var BinaryOps = []string{"+", "-", "*", "/", "%", "==", "!=", "<=", ">=", "&&", "||", "<", ">"}
 
-func peekInfixSymbol(dat []byte, i int) string {
-	tail := dat[i:]
-	end_i := 0
-	for {
-		ch := tail[end_i]
-		for _, sch := range SymChars {
-			if ch == sch {
-				end_i += 1
-				goto next
-			}
+func peekInfixSymbol(dat []byte) string {
+	for _, op := range BinaryOps {
+		if bytes.HasPrefix(dat, []byte(op)) {
+			return op
 		}
-		break
-	next:
 	}
-	symbytes := string(tail[0:end_i])
-	return symbytes
+	return ""
 }
 
 func lex(dat []byte) []Token {
@@ -204,7 +199,7 @@ func lex(dat []byte) []Token {
 		if isAlpha(dat[i]) {
 			thisIdent := []byte{dat[i]}
 
-			for i += 1; isAlpha(dat[i]); i += 1 {
+			for i += 1; isAlphanumeric(dat[i]); i += 1 {
 				thisIdent = append(thisIdent, dat[i])
 			}
 			i -= 1
@@ -276,7 +271,7 @@ func lex(dat []byte) []Token {
 			i += 1
 		} else if dat[i] == ':' {
 			tokens = append(tokens, Token{Colon, string([]byte{dat[i]})})
-		} else if binOp := peekInfixSymbol(dat, i); len(binOp) > 0 {
+		} else if binOp := peekInfixSymbol(dat[i:]); len(binOp) > 0 {
 			tokens = append(tokens, Token{BinaryOp, binOp})
 			i += len(binOp) - 1
 		} else if dat[i] == '=' {
