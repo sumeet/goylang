@@ -203,14 +203,13 @@ func parseImport(tokens []Token) (Import, []Token) {
 func parseStatement(tokens []Token) (Statement, []Token) {
 	match (tokens[0].Type) {
 		TokenType.Import{}: {
-		  // TODO: workaround for not supporting multiple reassignment (supports multiple assignment...)
 		  imp, tokens := parseImport(tokens)
 		  return Statement.Import { imp }, tokens
     },
-	//	TokenType.EnumDecl{}: {
-	//		//thisToken, tokens = parseEnum(tokens)
-	//		//p = append(p, Statement.Enum{ parseEnum(tokens) })
-	//	},
+	  TokenType.EnumDecl{}: {
+	  	//thisToken, tokens = parseEnum(tokens)
+	  	//p = append(p, Statement.Enum{ parseEnum(tokens) })
+	  },
 	}
   panic(fmt.Sprintf("unexpected token: %#v", tokens[0].Type))
 }
