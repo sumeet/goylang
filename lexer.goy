@@ -182,6 +182,7 @@ func lex(dat []byte) []Token {
 enum Statement {
 	Enum(Enum),
 	Import(Import),
+	Struct(Struct),
 }
 
 struct Program {
@@ -195,6 +196,16 @@ struct Import {
 struct Enum {
 	Name string,
 	Variants []string,
+}
+
+struct Struct {
+    Name string,
+    Fields []StructField,
+}
+
+struct StructField {
+    Name string,
+    Type string, // TODO: this should be a Type probably?
 }
 
 func parseImport(tokens []Token) (Import, []Token) {
@@ -211,7 +222,6 @@ func parseEnum(tokens []Token) (Enum, []Token) {
   e.Name = t.Value
   t, tokens = consumeToken(tokens, TokenType.LCurly{})
   while {
-    // TODO: why can't this be inlined?
     if (peekToken(tokens, TokenType.RCurly{})) {
       t, tokens = consumeToken(tokens, TokenType.RCurly{})
       break
@@ -223,16 +233,47 @@ func parseEnum(tokens []Token) (Enum, []Token) {
   return e, tokens
 }
 
+func parseStruct(tokens []Token) (Struct, []Token) {
+  t, tokens := consumeToken(tokens, TokenType.Struct{})
+  t, tokens = consumeToken(tokens, TokenType.Ident{})
+  s := Struct{}
+  s.Name = t.Value
+  t, tokens = consumeToken(tokens, TokenType.LCurly{})
+  while {
+    if (peekToken(tokens, TokenType.RCurly{})) {
+      t, tokens = consumeToken(tokens, TokenType.RCurly{})
+      break
+    }
+    field := StructField{}
+    t, tokens = consumeToken(tokens, TokenType.Ident{})
+    field.Name = t.Value
+    field.Type, tokens = parseType(tokens)
+    s.Fields = append(s.Fields, field)
+    t, tokens = consumeToken(tokens, TokenType.Comma{})
+  }
+  return s, tokens
+}
+
+func parseType(tokens []Token) (string, []Token) {
+  // TODO: handle arrays, pointers, etc.
+  t, tokens := consumeToken(tokens, TokenType.Ident{})
+  return t.Value, tokens
+}
+
 func parseStatement(tokens []Token) (Statement, []Token) {
 	match (tokens[0].Type) {
 		TokenType.Import{}: {
 		  imp, tokens := parseImport(tokens)
 		  return Statement.Import { imp }, tokens
-    },
-	  TokenType.EnumDecl{}: {
-	  	e, tokens := parseEnum(tokens)
-	  	return Statement.Enum { e }, tokens
-	  },
+        },
+        TokenType.EnumDecl{}: {
+          e, tokens := parseEnum(tokens)
+          return Statement.Enum { e }, tokens
+	    },
+	    TokenType.Struct{}: {
+          s, tokens := parseStruct(tokens)
+          return Statement.Struct { s }, tokens
+	    },
 	}
   panic(fmt.Sprintf("unexpected token: %#v", tokens[0]))
 }
