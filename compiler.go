@@ -27,6 +27,10 @@ func isAlpha(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
+func not(b bool) bool {
+	return !b
+}
+
 func c(s string) byte {
 	return s[0]
 }

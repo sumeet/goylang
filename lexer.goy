@@ -98,6 +98,8 @@ func lex(dat []byte) []Token {
 						tokens = append(tokens, Token{TokenType.Import{}, string(ident)})
 					} else if (string(ident) == "struct") {
 						tokens = append(tokens, Token{TokenType.Struct{}, string(ident)})
+					} else if (string(ident) == "func") {
+						tokens = append(tokens, Token{TokenType.FuncDecl{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -179,14 +181,57 @@ func lex(dat []byte) []Token {
 	return tokens
 }
 
-enum Statement {
+enum Declaration {
 	Enum(Enum),
 	Import(Import),
 	Struct(Struct),
+	Function(Function),
+}
+
+enum Expr {
+}
+
+struct FunctionParam {
+    Name string,
+    Type string, // TODO: this should be a Type probably?
+}
+
+struct Function {
+    Name string,
+    Params []FunctionParam,
+    Returns []string,
+    Body Block,
+}
+
+struct Block {
+}
+
+func parseBlock(tokens []Token) (Block, []Token) {
+  // keeps a stacks of curly braces, and figures out when the matching curly brace is...
+  // thing is we're not actually going to parse the block, just skip past it. Block is an empty
+  // struct for now
+  t, tokens := consumeToken(tokens, TokenType.LCurly{})
+  curlyStack := []Token{t}
+  while {
+    if (peekToken(tokens, TokenType.LCurly{})) {
+      t, tokens = consumeToken(tokens, TokenType.LCurly{})
+      curlyStack = append(curlyStack, t)
+    } else if (peekToken(tokens, TokenType.RCurly{})) {
+      t, tokens = consumeToken(tokens, TokenType.RCurly{})
+      curlyStack = slice(curlyStack, 0, len(curlyStack) - 1)
+      if (len(curlyStack) == 0) {
+        break
+      }
+    } else {
+      typ := tokens[0].Type
+      t, tokens = consumeToken(tokens, typ)
+    }
+  }
+  return Block{}, tokens
 }
 
 struct Program {
-	Statements []Statement,
+	Declarations []Declaration,
 }
 
 struct Import {
@@ -195,7 +240,12 @@ struct Import {
 
 struct Enum {
 	Name string,
-	Variants []string,
+	Variants []EnumVariant,
+}
+
+struct EnumVariant {
+    Name string,
+    Type string, // TODO: this should be a Type probably?   (can be empty)
 }
 
 struct Struct {
@@ -227,7 +277,18 @@ func parseEnum(tokens []Token) (Enum, []Token) {
       break
     }
     t, tokens = consumeToken(tokens, TokenType.Ident{})
-    e.Variants = append(e.Variants, t.Value)
+    variant := EnumVariant{}
+    variant.Name = t.Value
+
+    if (peekToken(tokens, TokenType.LParen{})) {
+      t, tokens = consumeToken(tokens, TokenType.LParen{})
+      typ := ""
+      typ, tokens = parseType(tokens)
+      variant.Type = typ
+      t, tokens = consumeToken(tokens, TokenType.RParen{})
+    }
+
+    e.Variants = append(e.Variants, variant)
     t, tokens = consumeToken(tokens, TokenType.Comma{})
   }
   return e, tokens
@@ -255,24 +316,96 @@ func parseStruct(tokens []Token) (Struct, []Token) {
 }
 
 func parseType(tokens []Token) (string, []Token) {
-  // TODO: handle arrays, pointers, etc.
-  t, tokens := consumeToken(tokens, TokenType.Ident{})
-  return t.Value, tokens
+  // TODO: handle pointers
+  name := ""
+  t := Token{}
+  while {
+    if (peekToken(tokens, TokenType.Ident{})) {
+      t, tokens = consumeToken(tokens, TokenType.Ident{})
+      name = name + t.Value
+    } else if (peekToken(tokens, TokenType.LBracket{})) {
+      t, tokens = consumeToken(tokens, TokenType.LBracket{})
+      name = name + t.Value
+    } else if (peekToken(tokens, TokenType.RBracket{})) {
+      t, tokens = consumeToken(tokens, TokenType.RBracket{})
+      name = name + t.Value
+    } else {
+      break
+    }
+  }
+  return name, tokens
 }
 
-func parseStatement(tokens []Token) (Statement, []Token) {
+func parseFunction(tokens []Token) (Function, []Token) {
+    t, tokens := consumeToken(tokens, TokenType.FuncDecl{})
+    t, tokens = consumeToken(tokens, TokenType.Ident{})
+    f := Function{}
+    f.Name = t.Value
+    t, tokens = consumeToken(tokens, TokenType.LParen{})
+    while {
+        if (peekToken(tokens, TokenType.RParen{})) {
+          t, tokens = consumeToken(tokens, TokenType.RParen{})
+          break
+        }
+        param := FunctionParam{}
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        param.Name = t.Value
+        param.Type, tokens = parseType(tokens)
+        f.Params = append(f.Params, param)
+        if (peekToken(tokens, TokenType.Comma{})) {
+          t, tokens = consumeToken(tokens, TokenType.Comma{})
+        }
+    }
+
+    if (not(peekToken(tokens, TokenType.LCurly{}))) {
+        typ := ""
+        f.Returns, tokens = parseReturnTypes(tokens)
+    }
+
+    f.Body, tokens = parseBlock(tokens)
+    return f, tokens
+}
+
+func parseReturnTypes(tokens []Token) ([]string, []Token) {
+    types := []string{}
+    typ := ""
+    t := Token{}
+    if (peekToken(tokens, TokenType.LParen{})) {
+      t, tokens = consumeToken(tokens, TokenType.LParen{})
+      while {
+        typ, tokens = parseType(tokens)
+        types = append(types, typ)
+        if (peekToken(tokens, TokenType.Comma{})) {
+          t, tokens = consumeToken(tokens, TokenType.Comma{})
+        } else {
+          break
+        }
+      }
+      t, tokens = consumeToken(tokens, TokenType.RParen{})
+    } else {
+        typ, tokens = parseType(tokens)
+        types = append(types, typ)
+    }
+    return types, tokens
+}
+
+func parseDeclaration(tokens []Token) (Declaration, []Token) {
 	match (tokens[0].Type) {
 		TokenType.Import{}: {
 		  imp, tokens := parseImport(tokens)
-		  return Statement.Import { imp }, tokens
+		  return Declaration.Import { imp }, tokens
         },
         TokenType.EnumDecl{}: {
           e, tokens := parseEnum(tokens)
-          return Statement.Enum { e }, tokens
+          return Declaration.Enum { e }, tokens
 	    },
 	    TokenType.Struct{}: {
           s, tokens := parseStruct(tokens)
-          return Statement.Struct { s }, tokens
+          return Declaration.Struct { s }, tokens
+	    },
+	    TokenType.FuncDecl{}: {
+	      f, tokens := parseFunction(tokens)
+	      return Declaration.Function { f }, tokens
 	    },
 	}
   panic(fmt.Sprintf("unexpected token: %#v", tokens[0]))
@@ -283,18 +416,21 @@ func parseProgram(tokens []Token) Program {
 	while {
 	  tokens = skipNewlines(tokens)
 	  if (len(tokens) == 0) {
-      break
+          break
 	  }
 
-	  statement, tokens2 := parseStatement(tokens)
+	  declaration, tokens2 := parseDeclaration(tokens)
 	  tokens = tokens2
-	  p.Statements = append(p.Statements, statement)
+	  p.Declarations = append(p.Declarations, declaration)
 	}
 	return p
 }
 
 func skipNewlines(tokens []Token) []Token {
 	while {
+      if (len(tokens) == 0) {
+          return tokens
+      }
 	  match (tokens[0].Type) {
 	    TokenType.Newline: {
 	      tokens = slice(tokens, 1)
@@ -337,8 +473,8 @@ func main() {
 		panic(err)
 	}
 	tokens := lex(dat)
-	print("Tokens:")
-	print(tokens)
+	//print("Tokens:")
+	//print(tokens)
 	program := parseProgram(tokens)
 	print("Program:")
 	print(program)
