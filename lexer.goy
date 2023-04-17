@@ -11,8 +11,6 @@ enum TokenType {
 	RBracket,
 	Ident,
 	IntLiteral,
-	Assignment,
-	Reassignment,
 	BinaryOp,
 	Newline,
 	Comma,
@@ -21,6 +19,7 @@ enum TokenType {
 	Match,
 	Dot,
 	Colon,
+	Equals,
 	Import,
 	Struct,
 }
@@ -148,6 +147,9 @@ func lex(dat []byte) []Token {
 		} else if (nc(dat, i, ":")) {
 			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
 			i = i + 1
+		} else if (nc(dat, i, "=")) {
+			tokens = append(tokens, Token{TokenType.Equals{}, "="})
+			i = i + 1
 		} else if (nc(dat, i, ".")) {
 			tokens = append(tokens, Token{TokenType.Dot{}, "."})
 			i = i + 1
@@ -188,9 +190,6 @@ enum Declaration {
 	Function(Function),
 }
 
-enum Expr {
-}
-
 struct FunctionParam {
     Name string,
     Type string, // TODO: this should be a Type probably?
@@ -203,7 +202,31 @@ struct Function {
     Body Block,
 }
 
+enum LValue {
+  Variable(string),
+}
+
+struct FuncCall {
+  LHS Expr,
+  Params []Expr,
+}
+
+enum Expr {
+  VarRef(string),
+  FuncCall(FuncCall),
+}
+
+struct Assignment {
+  LValue []LValue,
+  RValue Expr,
+}
+
+enum Statement {
+  Assignment(Assignment),
+}
+
 struct Block {
+  Statements []Statement,
 }
 
 func parseBlock(tokens []Token) (Block, []Token) {
@@ -440,6 +463,22 @@ func skipNewlines(tokens []Token) []Token {
 	  break
 	}
 	return tokens
+}
+
+func peekTokens(tokens []Token, expectedTypes []TokenType) bool {
+    i := 0
+    while {
+        if (i >= len(expectedTypes)) {
+            return true
+        }
+        if (len(tokens) == 0) {
+            return false
+        }
+        if (tokens[i].Type != expectedTypes[i]) {
+            return false
+        }
+        i = i + 1
+    }
 }
 
 func peekToken(tokens []Token, expectedType TokenType) bool {
