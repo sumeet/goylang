@@ -197,9 +197,7 @@ func parseImport(tokens []Token) (Import, []Token) {
   t, tokens := consumeToken(tokens, TokenType.Import{})
   t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
   name := t.Value
-  imp := Import{name}
-  panic(fmt.Sprintf("%#v", imp))
-  return imp, tokens
+  return Import{name}, tokens
 }
 
 func parseStatement(tokens []Token) (Statement, []Token) {
@@ -222,10 +220,7 @@ func parseProgram(tokens []Token) Program {
 	while {
 	  statement, tokens2 := parseStatement(tokens)
 	  tokens = tokens2
-	  stmts := p.Statements
-	  // TODO: STRIKE NEXT HERE
-	  // need to be able to do dot accesses as lvalues
-	  stmts = append(stmts, statement)
+	  p.Statements = append(p.Statements, statement)
 	  break
 	}
 	return p

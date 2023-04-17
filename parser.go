@@ -664,18 +664,29 @@ func getLValues(tokens []Token) ([]string, []Token, TokenType) {
 	var lValues []string
 	var thisToken Token
 	for len(tokens) > 0 {
+		thisLValueName := ""
+		for peekToken(tokens, Ident, Dot) {
+			thisToken, tokens = consumeToken(tokens, Ident)
+			thisLValueName += thisToken.Value
+			thisToken, tokens = consumeToken(tokens, Dot)
+			thisLValueName += "."
+			continue
+		}
 		if peekToken(tokens, Ident, Comma) {
 			thisToken, tokens = consumeToken(tokens, Ident)
-			lValues = append(lValues, thisToken.Value)
+			thisLValueName += thisToken.Value
+			lValues = append(lValues, thisLValueName)
 			thisToken, tokens = consumeToken(tokens, Comma)
 			continue
 		} else if peekToken(tokens, Ident, Assignment) {
 			thisToken, tokens = consumeToken(tokens, Ident)
-			lValues = append(lValues, thisToken.Value)
+			thisLValueName += thisToken.Value
+			lValues = append(lValues, thisLValueName)
 			return lValues, tokens, Assignment
 		} else if peekToken(tokens, Ident, Reassignment) {
 			thisToken, tokens = consumeToken(tokens, Ident)
-			lValues = append(lValues, thisToken.Value)
+			thisLValueName += thisToken.Value
+			lValues = append(lValues, thisLValueName)
 			return lValues, tokens, Reassignment
 		} else {
 			return nil, origTokens, Assignment // last value doesn't matter, it's an error
