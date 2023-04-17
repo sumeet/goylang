@@ -194,6 +194,7 @@ struct Import {
 
 struct Enum {
 	Name string,
+	Variants []string,
 }
 
 func parseImport(tokens []Token) (Import, []Token) {
@@ -211,13 +212,13 @@ func parseEnum(tokens []Token) (Enum, []Token) {
   t, tokens = consumeToken(tokens, TokenType.LCurly{})
   while {
     // TODO: why can't this be inlined?
-    rcurly := TokenType.RCurly{}
-    if (tokens[0].Type == rcurly) {
+    if (peekToken(tokens, TokenType.RCurly{})) {
       t, tokens = consumeToken(tokens, TokenType.RCurly{})
       break
     }
-    typ := tokens[0].Type
-    t, tokens = consumeToken(tokens, typ)
+    t, tokens = consumeToken(tokens, TokenType.Ident{})
+    e.Variants = append(e.Variants, t.Value)
+    t, tokens = consumeToken(tokens, TokenType.Comma{})
   }
   return e, tokens
 }
@@ -262,6 +263,17 @@ func skipNewlines(tokens []Token) []Token {
 	  break
 	}
 	return tokens
+}
+
+func peekToken(tokens []Token, expectedType TokenType) bool {
+	if (len(tokens) == 0) {
+		panic("Unexpected end of input")
+	}
+	nl := TokenType.Newline{}
+	if (expectedType != nl) {
+	  tokens = skipNewlines(tokens)
+	}
+	return tokens[0].Type == expectedType
 }
 
 func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
