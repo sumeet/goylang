@@ -182,8 +182,7 @@ func guessType(expr Expr, scope *Scope) *Type {
 			return v
 		}
 	case *DotAccessExpr:
-		////// here is where "elided" "infects" dot accesses
-		t := lookupTypeInNamespace(scope, e.Left, e.Right)
+		t := getTypeForDotAccess(scope, e.Left, e.Right)
 		return &t
 	case *InitializerExpr:
 		t := guessGolangType(e.LHS)
@@ -201,7 +200,7 @@ func guessType(expr Expr, scope *Scope) *Type {
 		if strings.HasPrefix(lhsType.Name, "[]") {
 			return newTypeStar(strings.TrimPrefix(lhsType.Name, "[]"))
 		} else {
-			panic("couldn't guess type for array access on non array")
+			panic(fmt.Sprintf("couldn't guess type for array access on non array: %#v", lhsType))
 		}
 	}
 	//if typ, ok := e.LHS.(*LHS); ok {
@@ -226,18 +225,9 @@ func newUnknownType() *Type {
 	}
 }
 
-func lookupTypeInNamespace(scope *Scope, left Expr, right string) Type {
-	var nsName string
-	switch left.(type) {
-	case *VarRefExpr:
-		varRef := left.(*VarRefExpr)
-		nsName = varRef.VarName
-	default:
-		panic(fmt.Sprintf("expected var ref expr for left side of dot access expr: %#v", left))
-	}
-
+func getTypeForDotAccess(scope *Scope, left Expr, right string) Type {
 	////// here is where "elided" "infects" dot accesses
-	typ := scope.Lookup(nsName)
+	typ := guessType(left, scope)
 	if typ.Elided {
 		return *typ
 	}
@@ -250,7 +240,7 @@ func lookupTypeInNamespace(scope *Scope, left Expr, right string) Type {
 	golangTyp := getTypeForPackage(typ.PackageName, right)
 	ourTyp := convertGolangTypToOurTyp(golangTyp)
 	ourTyp.Name = right
-	//panic("got to end of lookupTypeInNamespace")
+	//panic("got to end of getTypeForDotAccess")
 	return *ourTyp
 }
 

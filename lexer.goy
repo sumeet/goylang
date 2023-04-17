@@ -22,6 +22,7 @@ enum TokenType {
 	Dot,
 	Colon,
 	Import,
+	Struct,
 }
 
 struct Token {
@@ -95,6 +96,8 @@ func lex(dat []byte) []Token {
 						tokens = append(tokens, Token{TokenType.EnumDecl{}, string(ident)})
 					} else if (string(ident) == "import") {
 						tokens = append(tokens, Token{TokenType.Import{}, string(ident)})
+					} else if (string(ident) == "struct") {
+						tokens = append(tokens, Token{TokenType.Struct{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -200,6 +203,25 @@ func parseImport(tokens []Token) (Import, []Token) {
   return Import{name}, tokens
 }
 
+func parseEnum(tokens []Token) (Enum, []Token) {
+  t, tokens := consumeToken(tokens, TokenType.EnumDecl{})
+  t, tokens = consumeToken(tokens, TokenType.Ident{})
+  e := Enum{}
+  e.Name = t.Value
+  t, tokens = consumeToken(tokens, TokenType.LCurly{})
+  while {
+    // TODO: why can't this be inlined?
+    rcurly := TokenType.RCurly{}
+    if (tokens[0].Type == rcurly) {
+      t, tokens = consumeToken(tokens, TokenType.RCurly{})
+      break
+    }
+    typ := tokens[0].Type
+    t, tokens = consumeToken(tokens, typ)
+  }
+  return e, tokens
+}
+
 func parseStatement(tokens []Token) (Statement, []Token) {
 	match (tokens[0].Type) {
 		TokenType.Import{}: {
@@ -207,20 +229,24 @@ func parseStatement(tokens []Token) (Statement, []Token) {
 		  return Statement.Import { imp }, tokens
     },
 	  TokenType.EnumDecl{}: {
-	  	//thisToken, tokens = parseEnum(tokens)
-	  	//p = append(p, Statement.Enum{ parseEnum(tokens) })
+	  	e, tokens := parseEnum(tokens)
+	  	return Statement.Enum { e }, tokens
 	  },
 	}
-  panic(fmt.Sprintf("unexpected token: %#v", tokens[0].Type))
+  panic(fmt.Sprintf("unexpected token: %#v", tokens[0]))
 }
 
 func parseProgram(tokens []Token) Program {
 	p := Program{}
 	while {
+	  tokens = skipNewlines(tokens)
+	  if (len(tokens) == 0) {
+      break
+	  }
+
 	  statement, tokens2 := parseStatement(tokens)
 	  tokens = tokens2
 	  p.Statements = append(p.Statements, statement)
-	  break
 	}
 	return p
 }
@@ -242,10 +268,9 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
   if (len(tokens) == 0) {
     panic("Unexpected end of input")
   }
-  match (expectedType) {
-    TokenType.Newline: {
-      tokens = skipNewlines(tokens)
-    },
+  nl := TokenType.Newline{}
+  if (expectedType != nl) {
+    tokens = skipNewlines(tokens)
   }
   if (tokens[0].Type != expectedType) {
 		panic(fmt.Sprintf("Was expecting token %#v, got %#v", expectedType, tokens[0]))
