@@ -214,6 +214,9 @@ struct FuncCall {
 enum Expr {
   VarRef(string),
   FuncCall(FuncCall),
+  // would be cool to get a warning if this was never constructed
+  // rust does that and it's very useful
+  IntLiteral(int),
 }
 
 struct Assignment {
@@ -266,10 +269,21 @@ func tryParseAssignment(tokens []Token) (bool, Assignment, []Token) {
     return true, ass, tokens
 }
 
+// because there's no way to declare enums
+func sentinelExprJank() Expr {
+    return Expr.VarRef { "" }
+}
+
 func parseExpr(tokens []Token) (Expr, []Token) {
     t := Token{}
-    t, tokens = consumeToken(tokens, TokenType.Ident{})
-    expr := Expr.VarRef { t.Value }
+    expr := sentinelExprJank()
+    if (peekToken(tokens, TokenType.Ident{})) {
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        expr = Expr.VarRef { t.Value }
+    } else if (peekToken(tokens, TokenType.IntLiteral{})) {
+        t, tokens = consumeToken(tokens, TokenType.IntLiteral{})
+        expr = Expr.IntLiteral { atoi(t.Value) }
+    }
     if (peekToken(tokens, TokenType.LParen{})) {
       funcCall := FuncCall{}
       funcCall, tokens = parseFuncCall(tokens, expr)

@@ -19,6 +19,15 @@ func prelude() string {
     return s[i[0]:i[1]]
 }
 
+func atoi(s string) int {
+	var i int
+	for _, c := range s {
+		i *= 10
+		i += int(c - '0')
+	}
+	return i
+}
+
 func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
