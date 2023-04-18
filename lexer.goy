@@ -224,6 +224,13 @@ enum Expr {
   BinOp(BinOp),
   Block(Block),
   ArrayAccess(ArrayAccess),
+  Initializer(Initializer),
+  StringLiteral(string),
+}
+
+struct Initializer {
+  Type string,
+  Params []Expr,
 }
 
 struct ArrayAccess {
@@ -316,10 +323,43 @@ func sentinelExprJank() Expr {
     return Expr.VarRef { "" }
 }
 
+func parseInitializer(tokens []Token) (Initializer, []Token) {
+    t := Token{}
+    i := Initializer{}
+    i.Type, tokens = parseType(tokens)
+    fmt.Printf("type: %#v\n", i.Type)
+    t, tokens = consumeToken(tokens, TokenType.LCurly{})
+    while {
+        if (peekToken(tokens, TokenType.RCurly{})) {
+          break
+        }
+        arg, tokens2 := parseExpr(tokens)
+        tokens = tokens2
+        i.Params = append(i.Params, arg)
+        fmt.Printf("params: %#v\n", i.Params)
+        if (peekToken(tokens, TokenType.Comma{})) {
+            t, tokens = consumeToken(tokens, TokenType.Comma{})
+        } else {
+            break
+        }
+    }
+    t, tokens = consumeToken(tokens, TokenType.RCurly{})
+    return i, tokens
+}
+
 func parseExpr(tokens []Token) (Expr, []Token) {
     t := Token{}
     expr := sentinelExprJank()
-    if (peekToken(tokens, TokenType.LCurly{})) {
+
+    // this might be kind of cheating, for the array initializer case
+    if (peekToken(tokens, TokenType.LBracket{})) {
+      i := Initializer{}
+      i, tokens = parseInitializer(tokens)
+      expr = Expr.Initializer { i }
+    } else if (peekToken(tokens, TokenType.StringLiteral{})) {
+      t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
+      expr = Expr.StringLiteral { t.Value }
+    } else if (peekToken(tokens, TokenType.LCurly{})) {
       b := Block{}
       b, tokens = parseBlock(tokens)
       expr = Expr.Block { b }
