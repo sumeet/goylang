@@ -339,10 +339,10 @@ func sentinelExprJank() Expr {
     return Expr.VarRef { "" }
 }
 
-func parseInitializer(tokens []Token) (Initializer, []Token) {
+func parseInitializer(tokens []Token, typ string) (Initializer, []Token) {
     t := Token{}
     i := Initializer{}
-    i.Type, tokens = parseType(tokens)
+    i.Type = typ
     t, tokens = consumeToken(tokens, TokenType.LCurly{})
     while {
         if (peekToken(tokens, TokenType.RCurly{})) {
@@ -368,7 +368,9 @@ func parseExpr(tokens []Token) (Expr, []Token) {
     // this might be kind of cheating, for the array initializer case
     if (peekToken(tokens, TokenType.LBracket{})) {
       i := Initializer{}
-      i, tokens = parseInitializer(tokens)
+      typ := ""
+      typ, tokens = parseType(tokens)
+      i, tokens = parseInitializer(tokens, typ)
       expr = Expr.Initializer { i }
     } else if (peekToken(tokens, TokenType.StringLiteral{})) {
       t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
@@ -409,7 +411,25 @@ func parseExpr(tokens []Token) (Expr, []Token) {
       expr = Expr.ArrayAccess { arrayAccess }
     }
 
+    // means this is an initializer
+    if (peekToken(tokens, TokenType.LCurly{})) {
+        // or should we just go back and reparse as a type?
+        typ := exprToType(expr)
+        i := Initializer{}
+        i, tokens = parseInitializer(tokens, typ)
+        expr = Expr.Initializer { i }
+    }
+
     return expr, tokens
+}
+
+func exprToType(expr Expr) string {
+  match (expr) {
+    Expr.VarRef { v }: {
+      return v
+    },
+  }
+  panic(fmt.Sprintf("trying to convert expr to type, unhandled expr: %#v", expr))
 }
 
 func parseFuncCall(tokens []Token, lhs Expr) (FuncCall, []Token) {
