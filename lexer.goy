@@ -22,6 +22,9 @@ enum TokenType {
 	Equals,
 	Import,
 	Struct,
+	While,
+	If,
+	Return,
 }
 
 struct Token {
@@ -48,22 +51,17 @@ func isAlphanumeric(b byte) bool {
   return isDigit(b) || isAlpha(b)
 }
 
-func peekInfixSymbol(dat []byte, start int) string {
-    SymChars := bs("+-*/%=!<>&|")
-    imax := len(dat)
-    i := start
-    while {
-        if (i == imax) {
-            break
-        }
-        ch := dat[i]
-        if (eqany(SymChars, ch)) {
-            i = i + 1
-        } else {
-            break
-        }
+func peekBinaryOp(dat []byte, start int) string {
+  binaryOps := []string{"+", "-", "*", "/", "%", "==", "!=", "<=", ">=", "&&", "||", "<", ">"}
+  i := 0
+  while {
+    if (i >= len(binaryOps)) {
+        return ""
+    } else if (nc(dat, start, binaryOps[i])) {
+        return binaryOps[i]
     }
-    return string(slice(dat, start, i))
+    i = i + 1
+  }
 }
 
 func lex(dat []byte) []Token {
@@ -99,6 +97,12 @@ func lex(dat []byte) []Token {
 						tokens = append(tokens, Token{TokenType.Struct{}, string(ident)})
 					} else if (string(ident) == "func") {
 						tokens = append(tokens, Token{TokenType.FuncDecl{}, string(ident)})
+					} else if (string(ident) == "while") {
+						tokens = append(tokens, Token{TokenType.While{}, string(ident)})
+					} else if (string(ident) == "if") {
+						tokens = append(tokens, Token{TokenType.If{}, string(ident)})
+					} else if (string(ident) == "return") {
+						tokens = append(tokens, Token{TokenType.Return{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -147,9 +151,6 @@ func lex(dat []byte) []Token {
 		} else if (nc(dat, i, ":")) {
 			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
 			i = i + 1
-		} else if (nc(dat, i, "=")) {
-			tokens = append(tokens, Token{TokenType.Equals{}, "="})
-			i = i + 1
 		} else if (nc(dat, i, ".")) {
 			tokens = append(tokens, Token{TokenType.Dot{}, "."})
 			i = i + 1
@@ -171,12 +172,15 @@ func lex(dat []byte) []Token {
 			}
 			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
 		} else {
-            str := peekInfixSymbol(dat, i)
+            str := peekBinaryOp(dat, i)
             if (len(str) > 0) {
-                tokens = append(tokens, Token{TokenType.BinaryOp{}, str})
-                i = i + len(str)
+              tokens = append(tokens, Token{TokenType.BinaryOp{}, str})
+              i = i + len(str)
+		    } else if (nc(dat, i, "=")) {
+			  tokens = append(tokens, Token{TokenType.Equals{}, "="})
+			  i = i + 1
             } else {
-                panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", dat[i], tokens))
+              panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", dat[i], tokens))
             }
 		}
 	}
@@ -217,6 +221,20 @@ enum Expr {
   // would be cool to get a warning if this was never constructed
   // rust does that and it's very useful
   IntLiteral(int),
+  BinOp(BinOp),
+  Block(Block),
+  ArrayAccess(ArrayAccess),
+}
+
+struct ArrayAccess {
+  LHS Expr,
+  Index Expr,
+}
+
+struct BinOp {
+    LHS Expr,
+    RHS Expr,
+    Op string,
 }
 
 struct Assignment {
@@ -225,7 +243,31 @@ struct Assignment {
   IsReassignment bool,
 }
 
+struct If {
+    Cond Expr,
+    IfBody Expr,
+}
+
+func parseReturn(tokens []Token) (Return, []Token) {
+  t := Token{}
+  t, tokens = consumeToken(tokens, TokenType.Return{})
+  r := Return {}
+  r.Expr, tokens = parseExpr(tokens)
+  return r, tokens
+}
+
 func parseStatement(tokens []Token) (Statement, []Token) {
+  if (peekToken(tokens, TokenType.While{})) {
+    w, tokens := parseWhile(tokens)
+    return Statement.While { w }, tokens
+  } else if (peekToken(tokens, TokenType.If{})) {
+    i, tokens := parseIf(tokens)
+    return Statement.If { i }, tokens
+  } else if (peekToken(tokens, TokenType.Return{})) {
+    r, tokens := parseReturn(tokens)
+    return Statement.Return { r }, tokens
+  }
+
   isAssignment := false
   ass := Assignment {}
   isAssignment, ass, tokens = tryParseAssignment(tokens)
@@ -277,18 +319,42 @@ func sentinelExprJank() Expr {
 func parseExpr(tokens []Token) (Expr, []Token) {
     t := Token{}
     expr := sentinelExprJank()
-    if (peekToken(tokens, TokenType.Ident{})) {
+    if (peekToken(tokens, TokenType.LCurly{})) {
+      b := Block{}
+      b, tokens = parseBlock(tokens)
+      expr = Expr.Block { b }
+    } else if (peekToken(tokens, TokenType.Ident{})) {
         t, tokens = consumeToken(tokens, TokenType.Ident{})
         expr = Expr.VarRef { t.Value }
     } else if (peekToken(tokens, TokenType.IntLiteral{})) {
         t, tokens = consumeToken(tokens, TokenType.IntLiteral{})
         expr = Expr.IntLiteral { atoi(t.Value) }
     }
+
     if (peekToken(tokens, TokenType.LParen{})) {
       funcCall := FuncCall{}
       funcCall, tokens = parseFuncCall(tokens, expr)
-      return Expr.FuncCall { funcCall }, tokens
+      expr = Expr.FuncCall { funcCall }
     }
+
+    if (peekToken(tokens, TokenType.BinaryOp{})) {
+      t, tokens = consumeToken(tokens, TokenType.BinaryOp{})
+      binop := BinOp {}
+      binop.LHS = expr
+      binop.Op = t.Value
+      binop.RHS, tokens = parseExpr(tokens)
+      expr = Expr.BinOp { binop }
+    }
+
+    if (peekToken(tokens, TokenType.LBracket{})) {
+      t, tokens = consumeToken(tokens, TokenType.LBracket{})
+      arrayAccess := ArrayAccess {}
+      arrayAccess.LHS = expr
+      arrayAccess.Index, tokens = parseExpr(tokens)
+      t, tokens = consumeToken(tokens, TokenType.RBracket{})
+      expr = Expr.ArrayAccess { arrayAccess }
+    }
+
     return expr, tokens
 }
 
@@ -318,10 +384,40 @@ func parseFuncCall(tokens []Token, lhs Expr) (FuncCall, []Token) {
 
 enum Statement {
   Assignment(Assignment),
+  While(While),
+  If(If),
+  Return(Return),
+}
+
+struct Return {
+  Expr Expr,
 }
 
 struct Block {
   Statements []Statement,
+}
+
+struct While {
+    Body Block,
+}
+
+func parseIf(tokens []Token) (If, []Token) {
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.If{})
+    i := If {}
+    t, tokens = consumeToken(tokens, TokenType.LParen{})
+    i.Cond, tokens = parseExpr(tokens)
+    t, tokens = consumeToken(tokens, TokenType.RParen{})
+    i.IfBody, tokens = parseExpr(tokens)
+    return i, tokens
+}
+
+func parseWhile(tokens []Token) (While, []Token) {
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.While{})
+    w := While {}
+    w.Body, tokens = parseBlock(tokens)
+    return w, tokens
 }
 
 func parseBlock(tokens []Token) (Block, []Token) {
@@ -333,6 +429,7 @@ func parseBlock(tokens []Token) (Block, []Token) {
         tokens = skipNewlines(tokens)
         stmt, tokens2 := parseStatement(tokens)
         tokens = tokens2
+        fmt.Printf("stmts: %#v\n", stmts)
         stmts = append(stmts, stmt)
         if (peekToken(tokens, TokenType.RCurly{})) {
             break
@@ -341,30 +438,6 @@ func parseBlock(tokens []Token) (Block, []Token) {
 
     t, tokens = consumeToken(tokens, TokenType.RCurly{})
     return Block{stmts}, tokens
-}
-
-func parseBlockFake(tokens []Token) (Block, []Token) {
-  // keeps a stacks of curly braces, and figures out when the matching curly brace is...
-  // thing is we're not actually going to parse the block, just skip past it. Block is an empty
-  // struct for now
-  t, tokens := consumeToken(tokens, TokenType.LCurly{})
-  curlyStack := []Token{t}
-  while {
-    if (peekToken(tokens, TokenType.LCurly{})) {
-      t, tokens = consumeToken(tokens, TokenType.LCurly{})
-      curlyStack = append(curlyStack, t)
-    } else if (peekToken(tokens, TokenType.RCurly{})) {
-      t, tokens = consumeToken(tokens, TokenType.RCurly{})
-      curlyStack = slice(curlyStack, 0, len(curlyStack) - 1)
-      if (len(curlyStack) == 0) {
-        break
-      }
-    } else {
-      typ := tokens[0].Type
-      t, tokens = consumeToken(tokens, typ)
-    }
-  }
-  return Block{}, tokens
 }
 
 struct Program {
