@@ -25,6 +25,9 @@ enum TokenType {
 	While,
 	If,
 	Return,
+	Else,
+	Break,
+	Continue,
 }
 
 struct Token {
@@ -103,6 +106,12 @@ func lex(dat []byte) []Token {
 						tokens = append(tokens, Token{TokenType.If{}, string(ident)})
 					} else if (string(ident) == "return") {
 						tokens = append(tokens, Token{TokenType.Return{}, string(ident)})
+					} else if (string(ident) == "else") {
+						tokens = append(tokens, Token{TokenType.Else{}, string(ident)})
+					} else if (string(ident) == "break") {
+						tokens = append(tokens, Token{TokenType.Break{}, string(ident)})
+					} else if (string(ident) == "continue") {
+						tokens = append(tokens, Token{TokenType.Continue{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -253,6 +262,7 @@ struct Assignment {
 struct If {
     Cond Expr,
     IfBody Expr,
+    ElseBody Expr, // this can be empty
 }
 
 func parseReturn(tokens []Token) (Return, []Token) {
@@ -264,7 +274,13 @@ func parseReturn(tokens []Token) (Return, []Token) {
 }
 
 func parseStatement(tokens []Token) (Statement, []Token) {
-  if (peekToken(tokens, TokenType.While{})) {
+  if (peekToken(tokens, TokenType.Continue{})) {
+    t, tokens := consumeToken(tokens, TokenType.Continue{})
+    return Statement.Continue{}, tokens
+  } else if (peekToken(tokens, TokenType.Break{})) {
+    t, tokens := consumeToken(tokens, TokenType.Break{})
+    return Statement.Break{}, tokens
+  } else if (peekToken(tokens, TokenType.While{})) {
     w, tokens := parseWhile(tokens)
     return Statement.While { w }, tokens
   } else if (peekToken(tokens, TokenType.If{})) {
@@ -327,7 +343,6 @@ func parseInitializer(tokens []Token) (Initializer, []Token) {
     t := Token{}
     i := Initializer{}
     i.Type, tokens = parseType(tokens)
-    fmt.Printf("type: %#v\n", i.Type)
     t, tokens = consumeToken(tokens, TokenType.LCurly{})
     while {
         if (peekToken(tokens, TokenType.RCurly{})) {
@@ -336,7 +351,6 @@ func parseInitializer(tokens []Token) (Initializer, []Token) {
         arg, tokens2 := parseExpr(tokens)
         tokens = tokens2
         i.Params = append(i.Params, arg)
-        fmt.Printf("params: %#v\n", i.Params)
         if (peekToken(tokens, TokenType.Comma{})) {
             t, tokens = consumeToken(tokens, TokenType.Comma{})
         } else {
@@ -427,6 +441,8 @@ enum Statement {
   While(While),
   If(If),
   Return(Return),
+  Break,
+  Continue,
 }
 
 struct Return {
@@ -449,6 +465,12 @@ func parseIf(tokens []Token) (If, []Token) {
     i.Cond, tokens = parseExpr(tokens)
     t, tokens = consumeToken(tokens, TokenType.RParen{})
     i.IfBody, tokens = parseExpr(tokens)
+
+    if (peekToken(tokens, TokenType.Else{})) {
+        t, tokens = consumeToken(tokens, TokenType.Else{})
+        i.ElseBody, tokens = parseExpr(tokens)
+    }
+
     return i, tokens
 }
 
@@ -469,7 +491,6 @@ func parseBlock(tokens []Token) (Block, []Token) {
         tokens = skipNewlines(tokens)
         stmt, tokens2 := parseStatement(tokens)
         tokens = tokens2
-        fmt.Printf("stmts: %#v\n", stmts)
         stmts = append(stmts, stmt)
         if (peekToken(tokens, TokenType.RCurly{})) {
             break
@@ -728,7 +749,7 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
     tokens = skipNewlines(tokens)
   }
   if (tokens[0].Type != expectedType) {
-		panic(fmt.Sprintf("Was expecting token %#v, got %#v", expectedType, tokens[0]))
+		panic(fmt.Sprintf("Was expecting token %#v, got %#v.\nremaining tokens: %#v", expectedType, tokens[0], tokens))
   }
   return tokens[0], slice(tokens, 1)
 }
