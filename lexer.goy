@@ -217,6 +217,12 @@ struct Function {
 
 enum LValue {
   Variable(string),
+  Dot(DotLValue),
+}
+
+struct DotLValue {
+    LHS LValue,
+    RHS LValue,
 }
 
 struct FuncCall {
@@ -235,6 +241,12 @@ enum Expr {
   ArrayAccess(ArrayAccess),
   Initializer(Initializer),
   StringLiteral(string),
+  DotAccess(DotAccess),
+}
+
+struct DotAccess {
+    LHS Expr,
+    Field string,
 }
 
 struct Initializer {
@@ -254,7 +266,7 @@ struct BinOp {
 }
 
 struct Assignment {
-  LValue []LValue,
+  LValues []LValue,
   RValue Expr,
   IsReassignment bool,
 }
@@ -269,7 +281,17 @@ func parseReturn(tokens []Token) (Return, []Token) {
   t := Token{}
   t, tokens = consumeToken(tokens, TokenType.Return{})
   r := Return {}
-  r.Expr, tokens = parseExpr(tokens)
+  e := sentinelExprJank()
+  e, tokens = parseExpr(tokens)
+  r.Exprs = append(r.Exprs, e)
+  while {
+      if (not(peekToken(tokens, TokenType.Comma{}))) {
+        break
+      }
+      t, tokens = consumeToken(tokens, TokenType.Comma{})
+      e, tokens = parseExpr(tokens)
+      r.Exprs = append(r.Exprs, e)
+  }
   return r, tokens
 }
 
@@ -297,34 +319,80 @@ func parseStatement(tokens []Token) (Statement, []Token) {
   if (isAssignment) {
     return Statement.Assignment { ass }, tokens
   }
-  // otherwise parse an expression i guess?
-  panic(fmt.Sprintf("trying to parse a statement, unhandled token: %#v", tokens[0]))
+
+  //fmt.Printf("trying to parse expr, these are the next tokens: %#v\n", tokens)
+  expr, tokens := parseExpr(tokens)
+  //fmt.Printf("done parsing expr\n")
+  return Statement.Expr { expr }, tokens
+}
+
+// TODO lol
+func sentinelLValueJank() LValue {
+    return LValue.Variable { "" }
+}
+
+func identsToLValue(idents []string) LValue {
+    if (len(idents) == 0) {
+        panic("requesting idents to lvalue for no idents")
+    } else if (len(idents) == 1) {
+        return LValue.Variable { idents[0] }
+    }
+    l := LValue.Variable { idents[0] }
+    r := LValue.Variable { idents[1] }
+    acc := sentinelLValueJank()
+    acc = LValue.Dot { DotLValue { l, r } }
+    idents = slice(idents, 2)
+    while {
+        if (len(idents) == 0) {
+            return acc
+        } else if (len(idents) == 1) {
+            dlv := DotLValue { acc, LValue.Variable { idents[0] } }
+            return LValue.Dot { dlv }
+        } else {
+            l := LValue.Variable { idents[0] }
+            r := LValue.Variable { idents[1] }
+            dlv := DotLValue { l, r }
+            acc = LValue.Dot { DotLValue { acc, LValue.Dot { dlv } } }
+            idents = slice(idents, 2)
+        }
+    }
 }
 
 func tryParseAssignment(tokens []Token) (bool, Assignment, []Token) {
     origTokens := tokens
-    lValues := []LValue{}
     t := Token{}
     ass := Assignment {}
     ass.IsReassignment = false
+    collectedIdents := []string{}
     while {
       if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Equals{}})) {
          ass.IsReassignment = true
          t, tokens = consumeToken(tokens, TokenType.Ident{})
-         lValues = append(lValues, LValue.Variable { t.Value } )
+         collectedIdents = append(collectedIdents, t.Value)
+         ass.LValues = append(ass.LValues, identsToLValue(collectedIdents))
+         collectedIdents = []string{}
          t, tokens = consumeToken(tokens, TokenType.Equals{})
          break
       } else if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Colon{}, TokenType.Equals{}})) {
         ass.IsReassignment = false
         t, tokens = consumeToken(tokens, TokenType.Ident{})
-        lValues = append(lValues, LValue.Variable { t.Value } )
+        collectedIdents = append(collectedIdents, t.Value)
+        ass.LValues = append(ass.LValues, identsToLValue(collectedIdents))
+        collectedIdents = []string{}
         t, tokens = consumeToken(tokens, TokenType.Colon{})
         t, tokens = consumeToken(tokens, TokenType.Equals{})
         break
       } else if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Comma{}})) {
         t, tokens = consumeToken(tokens, TokenType.Ident{})
-        lValues = append(lValues, LValue.Variable { t.Value } )
+        collectedIdents = append(collectedIdents, t.Value)
+        ass.LValues = append(ass.LValues, identsToLValue(collectedIdents))
+        collectedIdents = []string{}
         t, tokens = consumeToken(tokens, TokenType.Comma{})
+      } else if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Dot{}})) {
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        collectedIdents = append(collectedIdents, t.Value)
+        t, tokens = consumeToken(tokens, TokenType.Dot{})
+        continue
       } else {
         return false, Assignment{}, origTokens
       }
@@ -387,37 +455,45 @@ func parseExpr(tokens []Token) (Expr, []Token) {
         expr = Expr.IntLiteral { atoi(t.Value) }
     }
 
-    if (peekToken(tokens, TokenType.LParen{})) {
-      funcCall := FuncCall{}
-      funcCall, tokens = parseFuncCall(tokens, expr)
-      expr = Expr.FuncCall { funcCall }
-    }
-
-    if (peekToken(tokens, TokenType.BinaryOp{})) {
-      t, tokens = consumeToken(tokens, TokenType.BinaryOp{})
-      binop := BinOp {}
-      binop.LHS = expr
-      binop.Op = t.Value
-      binop.RHS, tokens = parseExpr(tokens)
-      expr = Expr.BinOp { binop }
-    }
-
-    if (peekToken(tokens, TokenType.LBracket{})) {
-      t, tokens = consumeToken(tokens, TokenType.LBracket{})
-      arrayAccess := ArrayAccess {}
-      arrayAccess.LHS = expr
-      arrayAccess.Index, tokens = parseExpr(tokens)
-      t, tokens = consumeToken(tokens, TokenType.RBracket{})
-      expr = Expr.ArrayAccess { arrayAccess }
-    }
-
-    // means this is an initializer
-    if (peekToken(tokens, TokenType.LCurly{})) {
-        // or should we just go back and reparse as a type?
-        typ := exprToType(expr)
-        i := Initializer{}
-        i, tokens = parseInitializer(tokens, typ)
-        expr = Expr.Initializer { i }
+    // after effects
+    while {
+        if (peekToken(tokens, TokenType.LParen{})) {
+          funcCall := FuncCall{}
+          funcCall, tokens = parseFuncCall(tokens, expr)
+          expr = Expr.FuncCall { funcCall }
+          continue
+        } else if (peekToken(tokens, TokenType.BinaryOp{})) {
+          t, tokens = consumeToken(tokens, TokenType.BinaryOp{})
+          binop := BinOp {}
+          binop.LHS = expr
+          binop.Op = t.Value
+          binop.RHS, tokens = parseExpr(tokens)
+          expr = Expr.BinOp { binop }
+          continue
+        } else if (peekToken(tokens, TokenType.LBracket{})) {
+          t, tokens = consumeToken(tokens, TokenType.LBracket{})
+          arrayAccess := ArrayAccess {}
+          arrayAccess.LHS = expr
+          arrayAccess.Index, tokens = parseExpr(tokens)
+          t, tokens = consumeToken(tokens, TokenType.RBracket{})
+          expr = Expr.ArrayAccess { arrayAccess }
+          continue
+        } else if (peekToken(tokens, TokenType.LCurly{})) {
+            // or should we just go back and reparse as a type?
+            typ := exprToType(expr)
+            i := Initializer{}
+            i, tokens = parseInitializer(tokens, typ)
+            expr = Expr.Initializer { i }
+        } else if (peekToken(tokens, TokenType.Dot{})) {
+            dotAccess := DotAccess{}
+            dotAccess.LHS = expr
+            t, tokens = consumeToken(tokens, TokenType.Dot{})
+            t, tokens = consumeToken(tokens, TokenType.Ident{})
+            dotAccess.Field = t.Value
+            expr = Expr.DotAccess { dotAccess }
+        } else {
+            break
+        }
     }
 
     return expr, tokens
@@ -427,6 +503,12 @@ func exprToType(expr Expr) string {
   match (expr) {
     Expr.VarRef { v }: {
       return v
+    },
+    Expr.DotAccess { dotAccess }: {
+      l := dotAccess.LHS
+      f := dotAccess.Field
+      t := exprToType(l)
+      return t + "." + f
     },
   }
   panic(fmt.Sprintf("trying to convert expr to type, unhandled expr: %#v", expr))
@@ -463,10 +545,11 @@ enum Statement {
   Return(Return),
   Break,
   Continue,
+  Expr(Expr),
 }
 
 struct Return {
-  Expr Expr,
+  Exprs []Expr,
 }
 
 struct Block {
