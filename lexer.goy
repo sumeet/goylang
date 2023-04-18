@@ -274,7 +274,7 @@ struct Assignment {
 struct If {
     Cond Expr,
     IfBody Expr,
-    ElseBody Expr, // this can be empty
+    ElseBody Statement, // this can be empty
 }
 
 func parseReturn(tokens []Token) (Return, []Token) {
@@ -453,6 +453,8 @@ func parseExpr(tokens []Token) (Expr, []Token) {
     } else if (peekToken(tokens, TokenType.IntLiteral{})) {
         t, tokens = consumeToken(tokens, TokenType.IntLiteral{})
         expr = Expr.IntLiteral { atoi(t.Value) }
+    } else {
+        panic(fmt.Sprintf("unrecognized token when parsing expr: %#v. remaining tokens: %#v\n", tokens[0], tokens))
     }
 
     // after effects
@@ -571,7 +573,7 @@ func parseIf(tokens []Token) (If, []Token) {
 
     if (peekToken(tokens, TokenType.Else{})) {
         t, tokens = consumeToken(tokens, TokenType.Else{})
-        i.ElseBody, tokens = parseExpr(tokens)
+        i.ElseBody, tokens = parseStatement(tokens)
     }
 
     return i, tokens
