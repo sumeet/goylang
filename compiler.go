@@ -449,6 +449,9 @@ func guessGolangType(expr Expr) Type {
 		return *newTypeStar(e.Left.(*VarRefExpr).VarName)
 	case *VarRefExpr:
 		return *newTypeStar(e.VarName)
+	// TODO: not sure if this is right, this was too obvious?
+	case *Type:
+		return *e
 	}
 	panic(fmt.Sprintf("couldn't print golang type name for %#v", expr))
 }

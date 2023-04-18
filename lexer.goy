@@ -219,6 +219,87 @@ enum Expr {
 struct Assignment {
   LValue []LValue,
   RValue Expr,
+  IsReassignment bool,
+}
+
+func parseStatement(tokens []Token) (Statement, []Token) {
+  isAssignment := false
+  ass := Assignment {}
+  isAssignment, ass, tokens = tryParseAssignment(tokens)
+  if (isAssignment) {
+    return Statement.Assignment { ass }, tokens
+  }
+  // otherwise parse an expression i guess?
+  panic(fmt.Sprintf("trying to parse a statement, unhandled token: %#v", tokens[0]))
+}
+
+func tryParseAssignment(tokens []Token) (bool, Assignment, []Token) {
+    origTokens := tokens
+    lValues := []LValue{}
+    t := Token{}
+    ass := Assignment {}
+    ass.IsReassignment = false
+    while {
+      if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Equals{}})) {
+         ass.IsReassignment = true
+         t, tokens = consumeToken(tokens, TokenType.Ident{})
+         lValues = append(lValues, LValue.Variable { t.Value } )
+         t, tokens = consumeToken(tokens, TokenType.Equals{})
+         break
+      } else if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Colon{}, TokenType.Equals{}})) {
+        ass.IsReassignment = false
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        lValues = append(lValues, LValue.Variable { t.Value } )
+        t, tokens = consumeToken(tokens, TokenType.Colon{})
+        t, tokens = consumeToken(tokens, TokenType.Equals{})
+        break
+      } else if (peekTokens(tokens, []TokenType{TokenType.Ident{}, TokenType.Comma{}})) {
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        lValues = append(lValues, LValue.Variable { t.Value } )
+        t, tokens = consumeToken(tokens, TokenType.Comma{})
+      } else {
+        return false, Assignment{}, origTokens
+      }
+    }
+
+    ass.RValue, tokens = parseExpr(tokens)
+    return true, ass, tokens
+}
+
+func parseExpr(tokens []Token) (Expr, []Token) {
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.Ident{})
+    expr := Expr.VarRef { t.Value }
+    if (peekToken(tokens, TokenType.LParen{})) {
+      funcCall := FuncCall{}
+      funcCall, tokens = parseFuncCall(tokens, expr)
+      return Expr.FuncCall { funcCall }, tokens
+    }
+    return expr, tokens
+}
+
+func parseFuncCall(tokens []Token, lhs Expr) (FuncCall, []Token) {
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.LParen{})
+    funcCall := FuncCall{}
+    funcCall.LHS = lhs
+    while {
+      if (peekToken(tokens, TokenType.RParen{})) {
+        break
+      }
+
+      nextParam, tokens2 := parseExpr(tokens)
+      funcCall.Params = append(funcCall.Params, nextParam)
+      tokens = tokens2
+
+      if (peekToken(tokens, TokenType.Comma{})) {
+        t, tokens = consumeToken(tokens, TokenType.Comma{})
+      } else {
+        break
+      }
+    }
+    t, tokens = consumeToken(tokens, TokenType.RParen{})
+    return funcCall, tokens
 }
 
 enum Statement {
@@ -230,6 +311,25 @@ struct Block {
 }
 
 func parseBlock(tokens []Token) (Block, []Token) {
+    stmts := []Statement{}
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.LCurly{})
+
+    while {
+        tokens = skipNewlines(tokens)
+        stmt, tokens2 := parseStatement(tokens)
+        tokens = tokens2
+        stmts = append(stmts, stmt)
+        if (peekToken(tokens, TokenType.RCurly{})) {
+            break
+        }
+    }
+
+    t, tokens = consumeToken(tokens, TokenType.RCurly{})
+    return Block{stmts}, tokens
+}
+
+func parseBlockFake(tokens []Token) (Block, []Token) {
   // keeps a stacks of curly braces, and figures out when the matching curly brace is...
   // thing is we're not actually going to parse the block, just skip past it. Block is an empty
   // struct for now
