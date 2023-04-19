@@ -112,6 +112,8 @@ func lex(dat []byte) []Token {
 						tokens = append(tokens, Token{TokenType.Break{}, string(ident)})
 					} else if (string(ident) == "continue") {
 						tokens = append(tokens, Token{TokenType.Continue{}, string(ident)})
+					} else if (string(ident) == "match") {
+						tokens = append(tokens, Token{TokenType.Match{}, string(ident)})
 					} else {
 						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
 					}
@@ -311,6 +313,9 @@ func parseStatement(tokens []Token) (Statement, []Token) {
   } else if (peekToken(tokens, TokenType.Return{})) {
     r, tokens := parseReturn(tokens)
     return Statement.Return { r }, tokens
+  } else if (peekToken(tokens, TokenType.Match{})) {
+    m, tokens := parseMatch(tokens)
+    return Statement.Match { m }, tokens
   }
 
   isAssignment := false
@@ -454,7 +459,8 @@ func parseExpr(tokens []Token) (Expr, []Token) {
         t, tokens = consumeToken(tokens, TokenType.IntLiteral{})
         expr = Expr.IntLiteral { atoi(t.Value) }
     } else {
-        panic(fmt.Sprintf("unrecognized token when parsing expr: %#v. remaining tokens: %#v\n", tokens[0], tokens))
+        panic(fmt.Sprintf("unrecognized token when parsing expr: %#v", tokens[0]))
+        //panic(fmt.Sprintf("unrecognized token when parsing expr: %#v. remaining tokens: %#v\n", tokens[0], tokens))
     }
 
     // after effects
@@ -548,6 +554,66 @@ enum Statement {
   Break,
   Continue,
   Expr(Expr),
+  Match(Match),
+}
+
+struct Match {
+    Matched Expr,
+    Arms []MatchArm,
+}
+
+struct MatchArm {
+    Pattern MatchPattern,
+    Body Expr,
+}
+
+enum MatchPattern {
+    Enum(EnumMatchPattern),
+}
+
+struct EnumMatchPattern {
+    Type string,
+    Binding string, // can be empty
+}
+
+func parseMatchPattern(tokens []Token) (MatchPattern, []Token) {
+    emp := EnumMatchPattern{}
+    emp.Type, tokens = parseType(tokens)
+    fmt.Printf("parsed type: %s\n", emp.Type)
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.LCurly{})
+    if (peekToken(tokens, TokenType.Ident{})) {
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        emp.Binding = t.Value
+    }
+    t, tokens = consumeToken(tokens, TokenType.RCurly{})
+    return MatchPattern.Enum { emp }, tokens
+}
+
+func parseMatch(tokens []Token) (Match, []Token) {
+    t := Token{}
+    t, tokens = consumeToken(tokens, TokenType.Match{})
+    m := Match{}
+    t, tokens = consumeToken(tokens, TokenType.LParen{})
+    m.Matched, tokens = parseExpr(tokens)
+    t, tokens = consumeToken(tokens, TokenType.RParen{})
+    t, tokens = consumeToken(tokens, TokenType.LCurly{})
+    while {
+        if (peekToken(tokens, TokenType.RCurly{})) {
+            break
+        }
+        arm := MatchArm{}
+        arm.Pattern, tokens = parseMatchPattern(tokens)
+        t, tokens = consumeToken(tokens, TokenType.Colon{})
+        arm.Body, tokens = parseExpr(tokens)
+        m.Arms = append(m.Arms, arm)
+        if (not(peekToken(tokens, TokenType.Comma{}))) {
+            break
+        }
+        t, tokens = consumeToken(tokens, TokenType.Comma{})
+    }
+    t, tokens = consumeToken(tokens, TokenType.RCurly{})
+    return m, tokens
 }
 
 struct Return {
@@ -705,6 +771,9 @@ func parseType(tokens []Token) (string, []Token) {
     } else if (peekToken(tokens, TokenType.RBracket{})) {
       t, tokens = consumeToken(tokens, TokenType.RBracket{})
       name = name + t.Value
+    } else if (peekToken(tokens, TokenType.Dot{})) {
+      t, tokens = consumeToken(tokens, TokenType.Dot{})
+      name = name + t.Value
     } else {
       break
     }
@@ -808,7 +877,7 @@ func skipNewlines(tokens []Token) []Token {
           return tokens
       }
 	  match (tokens[0].Type) {
-	    TokenType.Newline: {
+	    TokenType.Newline{}: {
 	      tokens = slice(tokens, 1)
 	      continue
       },
@@ -854,7 +923,8 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
     tokens = skipNewlines(tokens)
   }
   if (tokens[0].Type != expectedType) {
-		panic(fmt.Sprintf("Was expecting token %#v, got %#v.\nremaining tokens: %#v", expectedType, tokens[0], tokens))
+		//panic(fmt.Sprintf("Was expecting token %#v, got %#v.\nremaining tokens: %#v", expectedType, tokens[0], tokens))
+		panic(fmt.Sprintf("Was expecting token %#v, got %#v", expectedType, tokens[0]))
   }
   return tokens[0], slice(tokens, 1)
 }
