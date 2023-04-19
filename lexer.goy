@@ -579,7 +579,6 @@ struct EnumMatchPattern {
 func parseMatchPattern(tokens []Token) (MatchPattern, []Token) {
     emp := EnumMatchPattern{}
     emp.Type, tokens = parseType(tokens)
-    fmt.Printf("parsed type: %s\n", emp.Type)
     t := Token{}
     t, tokens = consumeToken(tokens, TokenType.LCurly{})
     if (peekToken(tokens, TokenType.Ident{})) {
@@ -929,15 +928,78 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
   return tokens[0], slice(tokens, 1)
 }
 
+func compile(program Program) string {
+    s := ""
+    i := 0
+    while {
+        if (i >= len(program.Declarations)) {
+            break
+        }
+        // used local variables here because the old compiler is busted
+        d := program.Declarations[i]
+        compiled := compileDeclaration(d)
+        s = s + compiled
+        s = s + "\n"
+        i = i + 1
+    }
+    return s
+}
+
+func compileDeclaration(d Declaration) string {
+    match (d) {
+        Declaration.Enum { e }: {
+            return compileEnum(e)
+        },
+        Declaration.Import { imp }: {
+            return compileImport(imp)
+        },
+        Declaration.Struct { s }: {
+            return compileStruct(s)
+        },
+        Declaration.Function { f }: {
+            return compileFunction(f)
+        },
+    }
+    // TODO: shouldn't have to do this because match is exhaustive
+    panic("unreachable")
+}
+
+func compileEnum(e Enum) string {
+    // TODO: we don't have compileIotaConstants, looks like we're not using it. so maybe we could add it back in later
+    return compileEnumInterfaces(e) + compileEnumStructs(e)
+}
+
+func typeName(e Enum) string {
+    return e.Name + "Type"
+}
+
+func enumVariantTag(e Enum, v EnumVariant) string {
+    return e.Name + "Type" + v.Name
+}
+
+func compileIotaConstants(e Enum) string {
+    s := "type " + typeName(e) + " uint8\n"
+    s = s + e.Name
+    s = s + "const (\n"
+    i := 0
+    while {
+        if (i >= len(e.Values)) {
+            break
+        }
+        v := e.Variants[i]
+        s = s + v.Name + " " + e.Name + " = iota\n"
+        i = i + 1
+    }
+    s = s + ")\n"
+    return s
+}
+
 func main() {
 	dat, err := os.ReadFile("lexer.goy")
 	if (err != nil) {
 		panic(err)
 	}
 	tokens := lex(dat)
-	//print("Tokens:")
-	//print(tokens)
 	program := parseProgram(tokens)
-	print("Program:")
-	print(program)
+	fmt.Println(compile(program))
 }
