@@ -1011,10 +1011,222 @@ func compileFunction(f Function) string {
     }
 
     returnTypes := f.ReturnTypes
-    s = s + ") " + compileReturnTypes(returnTypes) + " {\n"
-    // TODO: implement actually the function body
+    body := f.Body
+    s = s + ") " + compileReturnTypes(returnTypes) + compileBlock(body)
+    return s
+}
+
+func compileBlock(b Block) string {
+    s := "{\n"
+    i := 0
+    while {
+        if (i >= len(b.Statements)) {
+            break
+        }
+        statement := b.Statements[i]
+        s = s + compileStatement(statement)
+        s = s + "\n"
+        i = i + 1
+    }
     s = s + "}\n"
     return s
+}
+
+func compileStatement(stmt Statement) string {
+    match (stmt) {
+        Statement.Assignment { assignment }: {
+            return compileAssignment(assignment)
+        },
+        Statement.While { w }: {
+            return compileWhile(w)
+        },
+        Statement.If { ifStmt }: {
+            return compileIf(ifStmt)
+        },
+        Statement.Return { r }: {
+            return compileReturn(r)
+        },
+        Statement.Break { }: {
+            return "break"
+        },
+        Statement.Continue { }: {
+            return "continue"
+        },
+        Statement.Expr { expr }: {
+            return compileExpr(expr)
+        },
+        Statement.Match { m }: {
+            return compileMatch(m)
+        },
+    }
+    panic(fmt.Sprintf("unreachable, must not have handled a type of statement: %#v", stmt))
+}
+
+func MatchExprVarName() string {
+    return "matchExpr"
+}
+
+func BindingVarName() string {
+    return "binding"
+}
+
+func compileMatch(m Match) string {
+    // create a new anonymous block
+    s := "{\n"
+
+    matched := m.Matched
+    s = s + MatchExprVarName() + " := " + compileExpr(matched) + "\n"
+    // TODO: probably need stfu in here
+
+    i := 0
+    arms := m.Arms
+    while {
+        if (i >= len(arms)) {
+            break
+        }
+
+        arm := arms[i]
+        if (i == 0) {
+            s = s + "if "
+        } else {
+            s = s + " else if "
+        }
+        pat := arm.Pattern
+        s = s + compileMatchPatternTestExpr(pat) + " {\n"
+
+        // need to put the binding in here
+        s = s + compileBindingForMatchPattern(pat)
+        body := arm.Body
+        s = s + compileExpr(body)
+        s = s + "\n}"
+
+        i = i + 1
+    }
+
+    // end of new anonymous block
+    s = s + "\n}"
+    return s
+}
+
+func compileBindingForMatchPattern(pattern MatchPattern) string {
+    match (pattern) {
+        MatchPattern.Enum { emp }: {
+            if (emp.Binding == "") {
+                return ""
+            }
+            // TODO: should we output this using the thing that already outputs assignments?
+            return emp.Binding + " := " + BindingVarName() + ".Value\n"
+        },
+    }
+    panic(fmt.Sprintf("unreachable, must not have handled a type of match pattern: %#v", pattern))
+}
+
+func compileMatchPatternTestExpr(pattern MatchPattern) string {
+    match (pattern) {
+        MatchPattern.Enum { emp }: {
+            s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + emp.Type + ")"
+            s = s + "; ok"
+            return s
+        },
+    }
+    panic(fmt.Sprintf("unreachable, must not have handled a type of match pattern: %#v", pattern))
+}
+
+func compileReturn(r Return) string {
+    s := "return "
+    exprs := r.Exprs
+    if (len(exprs) == 0) {
+        return s
+    } else {
+        i := 0
+        while {
+            if (i >= len(exprs)) {
+                break
+            }
+            expr := exprs[i]
+            s = s + compileExpr(expr)
+            if (i < len(exprs) - 1) {
+                s = s + ", "
+            }
+            i = i + 1
+        }
+    }
+    return s
+}
+
+func compileWhile(w While) string {
+    body := w.Body
+    return "for " + compileBlock(body)
+}
+
+func compileIf(ifStmt If) string {
+    s := "if "
+    cond := ifStmt.Cond
+    s = s + compileExpr(cond)
+    s = s + " {\n"
+    ifBody := ifStmt.IfBody
+    s = s + compileExpr(ifBody)
+    s = s + "\n}\n"
+    elseBody := ifStmt.ElseBody
+    if (elseBody != nil) {
+        s = s + "else {\n"
+        s = s + compileStatement(elseBody)
+        s = s + "\n}\n"
+    }
+    return s
+}
+
+func compileAssignment(ass Assignment) string {
+    lValues := ass.LValues
+    s := compileLValues(lValues)
+    if (ass.IsReassignment) {
+        s = s + " = "
+    } else {
+        s = s + " := "
+    }
+    rValue := ass.RValue
+    s = s + compileExpr(rValue)
+    return s
+}
+
+func compileExpr(expr Expr) string {
+    return "some code"
+}
+
+func compileLValue(lValue LValue) string {
+    match (lValue) {
+        LValue.Variable { s }: {
+            return s
+        },
+        LValue.Dot { dotLValue }: {
+            lhs := dotLValue.LHS
+            rhs := dotLValue.RHS
+            return compileLValue(lhs) + "." + compileLValue(rhs)
+        },
+    }
+    panic("unreachable")
+}
+
+func compileLValues(lValues []LValue) string {
+    if (len(lValues) == 0) {
+        panic("must have at least one lvalue")
+    } else if (len(lValues) == 1) {
+        return compileLValue(lValues[0])
+    } else {
+        s := ""
+        i := 0
+        while {
+            if (i >= len(lValues)) {
+                break
+            }
+            s = s + compileLValue(lValues[i])
+            if (i < len(lValues) - 1) {
+                s = s + ", "
+            }
+            i = i + 1
+        }
+        return s
+    }
 }
 
 func compileReturnTypes(returnTypes []string) string {

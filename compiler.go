@@ -263,7 +263,7 @@ func compileMatch(b *strings.Builder, match MatchStmt) {
 		// right now it's just an enum variant, but could be other stuff that you might want to match in the future
 		golangTypeName, binding := golangTypeNameWithBindingsThingTODORename(matchArm.Pattern.Expr)
 		if i == 0 {
-			b.WriteString(fmt.Sprintf("if %s, ok := matchExpr.(%s); ok {\n", BindingVarname, golangTypeName))
+			b.WriteString(fmt.Sprintf("if %s, ok := %s.(%s); ok {\n", BindingVarname, MatchExprVarname, golangTypeName))
 		} else {
 			b.WriteString(fmt.Sprintf("} else if %s, ok := matchExpr.(%s); ok {\n", BindingVarname, golangTypeName))
 		}
