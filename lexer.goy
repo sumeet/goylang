@@ -213,7 +213,7 @@ struct FunctionParam {
 struct Function {
     Name string,
     Params []FunctionParam,
-    Returns []string,
+    ReturnTypes []string,
     Body Block,
 }
 
@@ -676,7 +676,7 @@ struct Program {
 }
 
 struct Import {
-  Name string,
+  Path string,
 }
 
 struct Enum {
@@ -803,7 +803,7 @@ func parseFunction(tokens []Token) (Function, []Token) {
 
     if (not(peekToken(tokens, TokenType.LCurly{}))) {
         typ := ""
-        f.Returns, tokens = parseReturnTypes(tokens)
+        f.ReturnTypes, tokens = parseReturnTypes(tokens)
     }
 
     f.Body, tokens = parseBlock(tokens)
@@ -964,34 +964,116 @@ func compileDeclaration(d Declaration) string {
     panic("unreachable")
 }
 
+func golangInterfaceName(e Enum) string {
+  return e.Name
+}
+
+func golangEnumImplementsInterfaceMethodName(e Enum) string {
+  return "_implements" + golangInterfaceName(e)
+}
+
 func compileEnum(e Enum) string {
-    // TODO: we don't have compileIotaConstants, looks like we're not using it. so maybe we could add it back in later
-    return compileEnumInterfaces(e) + compileEnumStructs(e)
+    return compileEnumInterface(e) + compileEnumStructs(e)
 }
 
-func typeName(e Enum) string {
-    return e.Name + "Type"
+func compileImport(imp Import) string {
+    return "import " + imp.Path
 }
 
-func enumVariantTag(e Enum, v EnumVariant) string {
-    return e.Name + "Type" + v.Name
-}
-
-func compileIotaConstants(e Enum) string {
-    s := "type " + typeName(e) + " uint8\n"
-    s = s + e.Name
-    s = s + "const (\n"
+func compileStruct(strukt Struct) string {
+    s := "type " + strukt.Name + " struct {\n"
     i := 0
     while {
-        if (i >= len(e.Values)) {
+        if (i >= len(strukt.Fields)) {
             break
         }
-        v := e.Variants[i]
-        s = s + v.Name + " " + e.Name + " = iota\n"
+        field := strukt.Fields[i]
+        s = s + field.Name + " " + field.Type + "\n"
         i = i + 1
     }
-    s = s + ")\n"
+    s = s + "}\n"
     return s
+}
+
+func compileFunction(f Function) string {
+    s := "func " + f.Name + "("
+    i := 0
+    while {
+        if (i >= len(f.Params)) {
+            break
+        }
+        param := f.Params[i]
+        s = s + param.Name + " " + param.Type
+        if (i < len(f.Params) - 1) {
+            s = s + ", "
+        }
+        i = i + 1
+    }
+
+    returnTypes := f.ReturnTypes
+    s = s + ") " + compileReturnTypes(returnTypes) + " {\n"
+    // TODO: implement actually the function body
+    s = s + "}\n"
+    return s
+}
+
+func compileReturnTypes(returnTypes []string) string {
+    if (len(returnTypes) == 0) {
+        return ""
+    }
+    if (len(returnTypes) == 1) {
+        return returnTypes[0]
+    }
+    s := "("
+    i := 0
+    while {
+        if (i >= len(returnTypes)) {
+            break
+        }
+        s = s + returnTypes[i]
+        if (i < len(returnTypes) - 1) {
+            s = s + ", "
+        }
+        i = i + 1
+    }
+    s = s + ")"
+    return s
+}
+
+func compileEnumInterface(e Enum) string {
+  s := "type " + golangInterfaceName(e) + " interface {\n"
+  s = s + golangEnumImplementsInterfaceMethodName(e) + "()\n"
+  s = s + "}\n"
+  return s
+}
+
+func structNameForVariant(e Enum, v EnumVariant) string {
+  return e.Name + v.Name
+}
+
+func compileEnumStructs(e Enum) string {
+  s := ""
+  i := 0
+  while {
+    if (i >= len(e.Variants)) {
+      break
+    }
+
+    // struct definition
+    variant := e.Variants[i]
+    structName := structNameForVariant(e, variant)
+    s = s + "type " + structName + " struct {\n"
+    if (variant.Type != "") {
+      s = s + "Value " + variant.Type + "\n"
+    }
+    s = s + "}\n"
+
+    // implement interface
+    s = s + "func (_ " + structName + ") " + golangEnumImplementsInterfaceMethodName(e) + "() {}\n"
+
+    i = i + 1
+  }
+  return s
 }
 
 func main() {

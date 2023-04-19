@@ -356,14 +356,14 @@ func compileEnumInterfaces(b *strings.Builder, enum Enum) {
 
 func compileEnumStructs(b *strings.Builder, enum Enum) {
 	for _, variant := range enum.Variants {
-		someName := fmt.Sprintf("%s%s", enum.Name, variant.Name)
-		b.WriteString(fmt.Sprintf("type %s struct {\n", someName))
+		structName := fmt.Sprintf("%s%s", enum.Name, variant.Name)
+		b.WriteString(fmt.Sprintf("type %s struct {\n", structName))
 		if variant.Type != nil {
 			b.WriteString(fmt.Sprintf("Value %s", *variant.Type))
 		}
 		b.WriteString("}\n")
 
-		b.WriteString(fmt.Sprintf("func (i %s) %s() %s {\n", someName, golangEnumTagMethodName(enum), typeName(enum)))
+		b.WriteString(fmt.Sprintf("func (i %s) %s() %s {\n", structName, golangEnumTagMethodName(enum), typeName(enum)))
 		b.WriteString(fmt.Sprintf("return %s", enumVariantTag(enum, variant)))
 		b.WriteString("}\n")
 	}
