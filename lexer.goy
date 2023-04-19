@@ -1,5 +1,6 @@
 import "os"
 import "fmt"
+import "strconv"
 
 enum TokenType {
 	FuncDecl,
@@ -1138,18 +1139,23 @@ func compileReturn(r Return) string {
     if (len(exprs) == 0) {
         return s
     } else {
-        i := 0
-        while {
-            if (i >= len(exprs)) {
-                break
-            }
-            expr := exprs[i]
-            s = s + compileExpr(expr)
-            if (i < len(exprs) - 1) {
-                s = s + ", "
-            }
-            i = i + 1
+        return s + compileExprsCSV(exprs)
+    }
+}
+
+func compileExprsCSV(exprs []Expr) string {
+    s := ""
+    i := 0
+    while {
+        if (i >= len(exprs)) {
+            break
         }
+        expr := exprs[i]
+        s = s + compileExpr(expr)
+        if (i < len(exprs) - 1) {
+            s = s + ", "
+        }
+        i = i + 1
     }
     return s
 }
@@ -1190,7 +1196,65 @@ func compileAssignment(ass Assignment) string {
 }
 
 func compileExpr(expr Expr) string {
-    return "some code"
+    match (expr) {
+        Expr.VarRef { s }: {
+            return s
+        },
+        Expr.FuncCall { funcCall }: {
+            lhs := funcCall.LHS
+            s := compileExpr(lhs) + "("
+            params := funcCall.Params
+            s = s + compileExprsCSV(params)
+            s = s + ")"
+            return s
+        },
+        Expr.IntLiteral { i }: {
+            return strconv.Itoa(i)
+        },
+        Expr.BinOp { binop }: {
+            lhs := binop.LHS
+            rhs := binop.RHS
+            op := binop.Op
+            return compileExpr(lhs) + " " + op + " " + compileExpr(rhs)
+        },
+        Expr.Block { block }: {
+            s := "{"
+            stmts := block.Statements
+            i := 0
+            while {
+                if (i >= len(stmts)) {
+                    break
+                }
+
+                stmt := stmts[i]
+                //s = s + "\n" + compileStatement(stmt)
+                i = i + 1
+            }
+            s = s + "\n}"
+            return s
+        },
+        Expr.ArrayAccess { aa }: {
+            lhs := aa.LHS
+            index := aa.Index
+            return compileExpr(lhs) + "[" + compileExpr(index) + "]"
+        },
+        Expr.Initializer { init }: {
+            s := init.Type + "{ "
+            params := init.Params
+            s = s + compileExprsCSV(params)
+            s = s + " }"
+            return s
+        },
+        Expr.StringLiteral { sl }: {
+            return sl
+        },
+        Expr.DotAccess { da }: {
+            lhs := da.LHS
+            field := da.Field
+            return compileExpr(lhs) + "." + field
+        },
+    }
+    panic(fmt.Sprintf("unhandled expr: %#v", expr))
 }
 
 func compileLValue(lValue LValue) string {
