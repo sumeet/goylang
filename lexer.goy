@@ -1116,8 +1116,7 @@ func compileMatch(m Match) string {
         }
         pat := arm.Pattern
         s = s + compileMatchPatternTestExpr(pat) + " {\n"
-
-        // need to put the binding in here
+        s = s + stfuUnusedVars(LValue.Variable { BindingVarName() }) + "\n"
         s = s + compileBindingForMatchPattern(pat)
         body := arm.Body
         s = s + compileExpr(body)
@@ -1138,7 +1137,9 @@ func compileBindingForMatchPattern(pattern MatchPattern) string {
                 return ""
             }
             // TODO: should we output this using the thing that already outputs assignments?
-            return emp.Binding + " := " + BindingVarName() + ".Value\n"
+            s := emp.Binding + " := " + BindingVarName() + ".Value\n"
+            s = s + stfuUnusedVars(LValue.Variable { emp.Binding }) + "\n"
+            return s
         },
     }
     panic(fmt.Sprintf("unreachable, must not have handled a type of match pattern: %#v", pattern))
@@ -1214,8 +1215,24 @@ func compileAssignment(ass Assignment) string {
         s = s + " := "
     }
     rValue := ass.RValue
-    s = s + compileExpr(rValue)
+    s = s + compileExpr(rValue) + "\n"
+
+    i := 0
+    while {
+        if (i >= len(lValues)) {
+            break
+        }
+        lValue := lValues[i]
+        s = s + stfuUnusedVars(lValue) + "\n"
+        i = i + 1
+    }
+
     return s
+}
+
+// TODO: only stfu Var lvalues not dot lvalues
+func stfuUnusedVars(lValue LValue) string {
+    return "_ = " + compileLValue(lValue)
 }
 
 func compileExpr(expr Expr) string {
