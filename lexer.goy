@@ -1339,7 +1339,7 @@ func compileType(typ string) string {
         }
         i = i + 1
     }
-    return typ
+    return s
 }
 
 func compileEnumInterface(e Enum) string {
