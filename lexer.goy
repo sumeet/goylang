@@ -962,6 +962,7 @@ func compile(program Program) string {
         s = s + "\n"
         i = i + 1
     }
+    s = s + prelude()
     return s
 }
 
@@ -1008,7 +1009,8 @@ func compileStruct(strukt Struct) string {
             break
         }
         field := strukt.Fields[i]
-        s = s + field.Name + " " + field.Type + "\n"
+        typ := field.Type
+        s = s + field.Name + " " + compileType(typ) + "\n"
         i = i + 1
     }
     s = s + "}\n"
@@ -1023,7 +1025,8 @@ func compileFunction(f Function) string {
             break
         }
         param := f.Params[i]
-        s = s + param.Name + " " + param.Type
+        typ := param.Type
+        s = s + param.Name + " " + compileType(typ)
         if (i < len(f.Params) - 1) {
             s = s + ", "
         }
@@ -1144,7 +1147,8 @@ func compileBindingForMatchPattern(pattern MatchPattern) string {
 func compileMatchPatternTestExpr(pattern MatchPattern) string {
     match (pattern) {
         MatchPattern.Enum { emp }: {
-            s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + emp.Type + ")"
+            typ := emp.Type
+            s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + compileType(typ) + ")"
             s = s + "; ok"
             return s
         },
@@ -1245,7 +1249,8 @@ func compileExpr(expr Expr) string {
             return compileExpr(lhs) + "[" + compileExpr(index) + "]"
         },
         Expr.Initializer { init }: {
-            s := init.Type + "{ "
+            typ := init.Type
+            s := compileType(typ) + "{ "
             params := init.Params
             s = s + compileExprsCSV(params)
             s = s + " }"
@@ -1312,7 +1317,7 @@ func compileReturnTypes(returnTypes []string) string {
         if (i >= len(returnTypes)) {
             break
         }
-        s = s + returnTypes[i]
+        s = s + compileType(returnTypes[i])
         if (i < len(returnTypes) - 1) {
             s = s + ", "
         }
@@ -1320,6 +1325,21 @@ func compileReturnTypes(returnTypes []string) string {
     }
     s = s + ")"
     return s
+}
+
+func compileType(typ string) string {
+    s := ""
+    i := 0
+    while {
+        if (i >= len(typ)) {
+            break
+        }
+        if (typ[i] != c(".")) {
+            s = s + string(typ[i])
+        }
+        i = i + 1
+    }
+    return typ
 }
 
 func compileEnumInterface(e Enum) string {
@@ -1346,7 +1366,8 @@ func compileEnumStructs(e Enum) string {
     structName := structNameForVariant(e, variant)
     s = s + "type " + structName + " struct {\n"
     if (variant.Type != "") {
-      s = s + "Value " + variant.Type + "\n"
+        typ := variant.Type
+        s = s + "Value " + compileType(typ) + "\n"
     }
     s = s + "}\n"
 

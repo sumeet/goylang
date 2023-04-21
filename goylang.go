@@ -70,7 +70,6 @@ func main() {
 	tokens := lex(dat)
 	module := parse(tokens)
 	annotated_module := toAnnotated(&module)
-	_ = annotated_module
 
 	// collect import names
 	WalkAnnotated(annotated_module, func(node AnnotatedNode) {
