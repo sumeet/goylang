@@ -1878,10 +1878,7 @@ func parseImport(tokens []Token) (Import, []Token) {
 	_ = t
 	_ = tokens
 
-	name := t.Value
-	_ = name
-
-	return Import{name}, tokens
+	return Import{t.Value}, tokens
 }
 
 func parseEnum(tokens []Token) (Enum, []Token) {

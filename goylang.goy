@@ -730,8 +730,7 @@ struct StructField {
 func parseImport(tokens []Token) (Import, []Token) {
   t, tokens := consumeToken(tokens, TokenType.Import{})
   t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
-  name := t.Value
-  return Import{name}, tokens
+  return Import{t.Value}, tokens
 }
 
 func parseEnum(tokens []Token) (Enum, []Token) {
