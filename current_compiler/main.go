@@ -2908,19 +2908,10 @@ func compileExpr(expr Expr) string {
 			funcCall := binding.Value
 			_ = funcCall
 			{
-				lhs := funcCall.LHS
-				_ = lhs
-
-				s := compileExpr(lhs) + "("
+				s := compileExpr(funcCall.LHS) + "("
 				_ = s
 
-				params := funcCall.Params
-				_ = params
-
-				s = s + compileExprsCSV(params)
-				_ = s
-
-				s = s + ")"
+				s = s + compileExprsCSV(funcCall.Params) + ")"
 				_ = s
 
 				return s
@@ -2939,16 +2930,7 @@ func compileExpr(expr Expr) string {
 			binop := binding.Value
 			_ = binop
 			{
-				lhs := binop.LHS
-				_ = lhs
-
-				rhs := binop.RHS
-				_ = rhs
-
-				op := binop.Op
-				_ = op
-
-				return compileExpr(lhs) + " " + op + " " + compileExpr(rhs)
+				return compileExpr(binop.LHS) + " " + binop.Op + " " + compileExpr(binop.RHS)
 			}
 
 		} else if binding, ok := matchExpr.(ExprBlock); ok {
@@ -2964,13 +2946,7 @@ func compileExpr(expr Expr) string {
 			aa := binding.Value
 			_ = aa
 			{
-				lhs := aa.LHS
-				_ = lhs
-
-				index := aa.Index
-				_ = index
-
-				return compileExpr(lhs) + "[" + compileExpr(index) + "]"
+				return compileExpr(aa.LHS) + "[" + compileExpr(aa.Index) + "]"
 			}
 
 		} else if binding, ok := matchExpr.(ExprInitializer); ok {
@@ -2978,22 +2954,7 @@ func compileExpr(expr Expr) string {
 			init := binding.Value
 			_ = init
 			{
-				typ := init.Type
-				_ = typ
-
-				s := compileType(typ) + "{ "
-				_ = s
-
-				params := init.Params
-				_ = params
-
-				s = s + compileExprsCSV(params)
-				_ = s
-
-				s = s + " }"
-				_ = s
-
-				return s
+				return compileType(init.Type) + "{ " + compileExprsCSV(init.Params) + " }"
 			}
 
 		} else if binding, ok := matchExpr.(ExprStringLiteral); ok {
@@ -3009,13 +2970,7 @@ func compileExpr(expr Expr) string {
 			da := binding.Value
 			_ = da
 			{
-				lhs := da.LHS
-				_ = lhs
-
-				field := da.Field
-				_ = field
-
-				return compileExpr(lhs) + "." + field
+				return compileExpr(da.LHS) + "." + da.Field
 			}
 
 		}

@@ -1219,45 +1219,30 @@ func compileExpr(expr Expr) string {
             return s
         },
         Expr.FuncCall { funcCall }: {
-            lhs := funcCall.LHS
-            s := compileExpr(lhs) + "("
-            params := funcCall.Params
-            s = s + compileExprsCSV(params)
-            s = s + ")"
+            s := compileExpr(funcCall.LHS) + "("
+            s = s + compileExprsCSV(funcCall.Params) + ")"
             return s
         },
         Expr.IntLiteral { i }: {
             return strconv.Itoa(i)
         },
         Expr.BinOp { binop }: {
-            lhs := binop.LHS
-            rhs := binop.RHS
-            op := binop.Op
-            return compileExpr(lhs) + " " + op + " " + compileExpr(rhs)
+            return compileExpr(binop.LHS) + " " + binop.Op + " " + compileExpr(binop.RHS)
         },
         Expr.Block { block }: {
             return compileBlock(block)
         },
         Expr.ArrayAccess { aa }: {
-            lhs := aa.LHS
-            index := aa.Index
-            return compileExpr(lhs) + "[" + compileExpr(index) + "]"
+            return compileExpr(aa.LHS) + "[" + compileExpr(aa.Index) + "]"
         },
         Expr.Initializer { init }: {
-            typ := init.Type
-            s := compileType(typ) + "{ "
-            params := init.Params
-            s = s + compileExprsCSV(params)
-            s = s + " }"
-            return s
+            return compileType(init.Type) + "{ " + compileExprsCSV(init.Params) + " }"
         },
         Expr.StringLiteral { sl }: {
             return sl
         },
         Expr.DotAccess { da }: {
-            lhs := da.LHS
-            field := da.Field
-            return compileExpr(lhs) + "." + field
+            return compileExpr(da.LHS) + "." + da.Field
         },
     }
     panic(fmt.Sprintf("unhandled expr: %#v", expr))
@@ -1269,9 +1254,7 @@ func compileLValue(lValue LValue) string {
             return s
         },
         LValue.Dot { dotLValue }: {
-            lhs := dotLValue.LHS
-            rhs := dotLValue.RHS
-            return compileLValue(lhs) + "." + compileLValue(rhs)
+            return compileLValue(dotLValue.LHS) + "." + compileLValue(dotLValue.RHS)
         },
     }
     panic("unreachable")
@@ -1361,8 +1344,7 @@ func compileEnumStructs(e Enum) string {
     structName := structNameForVariant(e, variant)
     s = s + "type " + structName + " struct {\n"
     if (variant.Type != "") {
-        typ := variant.Type
-        s = s + "Value " + compileType(typ) + "\n"
+        s = s + "Value " + compileType(variant.Type) + "\n"
     }
     s = s + "}\n"
 
