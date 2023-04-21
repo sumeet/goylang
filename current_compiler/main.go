@@ -859,6 +859,12 @@ func parseReturn(tokens []Token) (Return, []Token) {
 	r := Return{}
 	_ = r
 
+	if peekToken(tokens, TokenTypeNewline{}) {
+		{
+			return r, tokens
+		}
+
+	}
 	e := sentinelExprJank()
 	_ = e
 
@@ -3326,7 +3332,14 @@ func compileEnumStructs(e Enum) string {
 }
 
 func main() {
-	dat, err := os.ReadFile("lexer.goy")
+	if len(os.Args) < 2 {
+		{
+			fmt.Printf("Usage: ./%s <filename.goy>\n", os.Args[0])
+			return
+		}
+
+	}
+	dat, err := os.ReadFile(os.Args[1])
 	_ = dat
 	_ = err
 
