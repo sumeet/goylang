@@ -1136,8 +1136,7 @@ func compileBindingForMatchPattern(pattern MatchPattern) string {
 func compileMatchPatternTestExpr(pattern MatchPattern) string {
     match (pattern) {
         MatchPattern.Enum { emp }: {
-            typ := emp.Type
-            s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + compileType(typ) + ")"
+            s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + compileType(emp.Type) + ")"
             s = s + "; ok"
             return s
         },
@@ -1147,11 +1146,10 @@ func compileMatchPatternTestExpr(pattern MatchPattern) string {
 
 func compileReturn(r Return) string {
     s := "return "
-    exprs := r.Exprs
-    if (len(exprs) == 0) {
+    if (len(r.Exprs) == 0) {
         return s
     } else {
-        return s + compileExprsCSV(exprs)
+        return s + compileExprsCSV(r.Exprs)
     }
 }
 
