@@ -1170,45 +1170,38 @@ func compileExprsCSV(exprs []Expr) string {
 }
 
 func compileWhile(w While) string {
-    body := w.Body
-    return "for " + compileBlock(body)
+    return "for " + compileBlock(w.Body)
 }
 
 func compileIf(ifStmt If) string {
     s := "if "
-    cond := ifStmt.Cond
-    s = s + compileExpr(cond)
+    s = s + compileExpr(ifStmt.Cond)
     s = s + " {\n"
-    ifBody := ifStmt.IfBody
-    s = s + compileExpr(ifBody)
+    s = s + compileExpr(ifStmt.IfBody)
     s = s + "\n}"
-    elseBody := ifStmt.ElseBody
-    if (elseBody != nil) {
+    if (ifStmt.ElseBody != nil) {
         s = s + "else {\n"
-        s = s + compileStatement(elseBody)
+        s = s + compileStatement(ifStmt.ElseBody)
         s = s + "\n}"
     }
     return s
 }
 
 func compileAssignment(ass Assignment) string {
-    lValues := ass.LValues
-    s := compileLValues(lValues)
+    s := compileLValues(ass.LValues)
     if (ass.IsReassignment) {
         s = s + " = "
     } else {
         s = s + " := "
     }
-    rValue := ass.RValue
-    s = s + compileExpr(rValue) + "\n"
+    s = s + compileExpr(ass.RValue) + "\n"
 
     i := 0
     while {
-        if (i >= len(lValues)) {
+        if (i >= len(ass.LValues)) {
             break
         }
-        lValue := lValues[i]
-        s = s + stfuUnusedVars(lValue) + "\n"
+        s = s + stfuUnusedVars(ass.LValues[i]) + "\n"
         i = i + 1
     }
 

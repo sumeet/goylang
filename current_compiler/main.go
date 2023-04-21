@@ -2809,43 +2809,31 @@ func compileExprsCSV(exprs []Expr) string {
 }
 
 func compileWhile(w While) string {
-	body := w.Body
-	_ = body
-
-	return "for " + compileBlock(body)
+	return "for " + compileBlock(w.Body)
 }
 
 func compileIf(ifStmt If) string {
 	s := "if "
 	_ = s
 
-	cond := ifStmt.Cond
-	_ = cond
-
-	s = s + compileExpr(cond)
+	s = s + compileExpr(ifStmt.Cond)
 	_ = s
 
 	s = s + " {\n"
 	_ = s
 
-	ifBody := ifStmt.IfBody
-	_ = ifBody
-
-	s = s + compileExpr(ifBody)
+	s = s + compileExpr(ifStmt.IfBody)
 	_ = s
 
 	s = s + "\n}"
 	_ = s
 
-	elseBody := ifStmt.ElseBody
-	_ = elseBody
-
-	if elseBody != nil {
+	if ifStmt.ElseBody != nil {
 		{
 			s = s + "else {\n"
 			_ = s
 
-			s = s + compileStatement(elseBody)
+			s = s + compileStatement(ifStmt.ElseBody)
 			_ = s
 
 			s = s + "\n}"
@@ -2858,10 +2846,7 @@ func compileIf(ifStmt If) string {
 }
 
 func compileAssignment(ass Assignment) string {
-	lValues := ass.LValues
-	_ = lValues
-
-	s := compileLValues(lValues)
+	s := compileLValues(ass.LValues)
 	_ = s
 
 	if ass.IsReassignment {
@@ -2879,26 +2864,20 @@ func compileAssignment(ass Assignment) string {
 		}
 
 	}
-	rValue := ass.RValue
-	_ = rValue
-
-	s = s + compileExpr(rValue) + "\n"
+	s = s + compileExpr(ass.RValue) + "\n"
 	_ = s
 
 	i := 0
 	_ = i
 
 	for {
-		if i >= len(lValues) {
+		if i >= len(ass.LValues) {
 			{
 				break
 			}
 
 		}
-		lValue := lValues[i]
-		_ = lValue
-
-		s = s + stfuUnusedVars(lValue) + "\n"
+		s = s + stfuUnusedVars(ass.LValues[i]) + "\n"
 		_ = s
 
 		i = i + 1
