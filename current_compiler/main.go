@@ -148,14 +148,11 @@ func newToken(tt TokenType, value string, loc int) Token {
 }
 
 func eqany(xs []byte, x byte) bool {
-	imax := len(xs)
-	_ = imax
-
 	i := 0
 	_ = i
 
 	for {
-		if i == imax {
+		if i == len(xs) {
 			{
 				return false
 			}
@@ -1491,16 +1488,7 @@ func exprToType(expr Expr) string {
 			dotAccess := binding.Value
 			_ = dotAccess
 			{
-				l := dotAccess.LHS
-				_ = l
-
-				f := dotAccess.Field
-				_ = f
-
-				t := exprToType(l)
-				_ = t
-
-				return t + "." + f
+				return exprToType(dotAccess.LHS) + "." + dotAccess.Field
 			}
 
 		}

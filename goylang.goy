@@ -42,10 +42,9 @@ func newToken(tt TokenType, value string, loc int) Token {
 }
 
 func eqany(xs []byte, x byte) bool {
-    imax := len(xs)
     i := 0
     while {
-        if (i == imax) {
+        if (i == len(xs)) {
             return false
         }
         b := xs[i]
@@ -545,10 +544,7 @@ func exprToType(expr Expr) string {
       return v
     },
     Expr.DotAccess { dotAccess }: {
-      l := dotAccess.LHS
-      f := dotAccess.Field
-      t := exprToType(l)
-      return t + "." + f
+      return exprToType(dotAccess.LHS) + "." + dotAccess.Field
     },
   }
   panic(fmt.Sprintf("trying to convert expr to type, unhandled expr: %#v", expr))
