@@ -1160,8 +1160,7 @@ func compileExprsCSV(exprs []Expr) string {
         if (i >= len(exprs)) {
             break
         }
-        expr := exprs[i]
-        s = s + compileExpr(expr)
+        s = s + compileExpr(exprs[i])
         if (i < len(exprs) - 1) {
             s = s + ", "
         }

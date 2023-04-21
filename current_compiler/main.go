@@ -2654,28 +2654,19 @@ func compileMatch(m Match) string {
 	s := "{\n"
 	_ = s
 
-	matched := m.Matched
-	_ = matched
-
-	s = s + MatchExprVarName() + " := " + compileExpr(matched) + "\n"
+	s = s + MatchExprVarName() + " := " + compileExpr(m.Matched) + "\n"
 	_ = s
 
 	i := 0
 	_ = i
 
-	arms := m.Arms
-	_ = arms
-
 	for {
-		if i >= len(arms) {
+		if i >= len(m.Arms) {
 			{
 				break
 			}
 
 		}
-		arm := arms[i]
-		_ = arm
-
 		if i == 0 {
 			{
 				s = s + "if "
@@ -2691,22 +2682,16 @@ func compileMatch(m Match) string {
 			}
 
 		}
-		pat := arm.Pattern
-		_ = pat
-
-		s = s + compileMatchPatternTestExpr(pat) + " {\n"
+		s = s + compileMatchPatternTestExpr(m.Arms[i].Pattern) + " {\n"
 		_ = s
 
 		s = s + stfuUnusedVars(LValueVariable{BindingVarName()}) + "\n"
 		_ = s
 
-		s = s + compileBindingForMatchPattern(pat)
+		s = s + compileBindingForMatchPattern(m.Arms[i].Pattern)
 		_ = s
 
-		body := arm.Body
-		_ = body
-
-		s = s + compileExpr(body)
+		s = s + compileExpr(m.Arms[i].Body)
 		_ = s
 
 		s = s + "\n}"
@@ -2759,10 +2744,7 @@ func compileMatchPatternTestExpr(pattern MatchPattern) string {
 			emp := binding.Value
 			_ = emp
 			{
-				typ := emp.Type
-				_ = typ
-
-				s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + compileType(typ) + ")"
+				s := BindingVarName() + ", ok := " + MatchExprVarName() + ".(" + compileType(emp.Type) + ")"
 				_ = s
 
 				s = s + "; ok"
@@ -2780,17 +2762,14 @@ func compileReturn(r Return) string {
 	s := "return "
 	_ = s
 
-	exprs := r.Exprs
-	_ = exprs
-
-	if len(exprs) == 0 {
+	if len(r.Exprs) == 0 {
 		{
 			return s
 		}
 
 	} else {
 		{
-			return s + compileExprsCSV(exprs)
+			return s + compileExprsCSV(r.Exprs)
 		}
 
 	}
@@ -2810,10 +2789,7 @@ func compileExprsCSV(exprs []Expr) string {
 			}
 
 		}
-		expr := exprs[i]
-		_ = expr
-
-		s = s + compileExpr(expr)
+		s = s + compileExpr(exprs[i])
 		_ = s
 
 		if i < len(exprs)-1 {
