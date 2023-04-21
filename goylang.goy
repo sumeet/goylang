@@ -827,7 +827,6 @@ func parseFunction(tokens []Token) (Function, []Token) {
     }
 
     if (not(peekToken(tokens, TokenType.LCurly{}))) {
-        typ := ""
         f.ReturnTypes, tokens = parseReturnTypes(tokens)
     }
 
@@ -960,11 +959,8 @@ func compile(program Program) string {
         if (i >= len(program.Declarations)) {
             break
         }
-        // used local variables here because the old compiler is busted
-        d := program.Declarations[i]
-        compiled := compileDeclaration(d)
-        s = s + compiled
-        s = s + "\n"
+        compiled := compileDeclaration(program.Declarations[i])
+        s = s + compiled + "\n"
         i = i + 1
     }
     s = s + prelude()
@@ -1014,8 +1010,7 @@ func compileStruct(strukt Struct) string {
             break
         }
         field := strukt.Fields[i]
-        typ := field.Type
-        s = s + field.Name + " " + compileType(typ) + "\n"
+        s = s + field.Name + " " + compileType(field.Type) + "\n"
         i = i + 1
     }
     s = s + "}\n"
@@ -1029,9 +1024,7 @@ func compileFunction(f Function) string {
         if (i >= len(f.Params)) {
             break
         }
-        param := f.Params[i]
-        typ := param.Type
-        s = s + param.Name + " " + compileType(typ)
+        s = s + param.Name + " " + compileType(f.Params[i].Type)
         if (i < len(f.Params) - 1) {
             s = s + ", "
         }

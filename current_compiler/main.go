@@ -1927,15 +1927,9 @@ func parseEnum(tokens []Token) (Enum, []Token) {
 				_ = t
 				_ = tokens
 
-				typ := ""
-				_ = typ
-
-				typ, tokens = parseType(tokens)
-				_ = typ
-				_ = tokens
-
-				variant.Type = typ
+				variant.Type, tokens = parseType(tokens)
 				_ = variant.Type
+				_ = tokens
 
 				t, tokens = consumeToken(tokens, TokenTypeRParen{})
 				_ = t
@@ -2141,9 +2135,6 @@ func parseFunction(tokens []Token) (Function, []Token) {
 
 	if not(peekToken(tokens, TokenTypeLCurly{})) {
 		{
-			typ := ""
-			_ = typ
-
 			f.ReturnTypes, tokens = parseReturnTypes(tokens)
 			_ = f.ReturnTypes
 			_ = tokens
@@ -2415,16 +2406,10 @@ func compile(program Program) string {
 			}
 
 		}
-		d := program.Declarations[i]
-		_ = d
-
-		compiled := compileDeclaration(d)
+		compiled := compileDeclaration(program.Declarations[i])
 		_ = compiled
 
-		s = s + compiled
-		_ = s
-
-		s = s + "\n"
+		s = s + compiled + "\n"
 		_ = s
 
 		i = i + 1
@@ -2511,10 +2496,7 @@ func compileStruct(strukt Struct) string {
 		field := strukt.Fields[i]
 		_ = field
 
-		typ := field.Type
-		_ = typ
-
-		s = s + field.Name + " " + compileType(typ) + "\n"
+		s = s + field.Name + " " + compileType(field.Type) + "\n"
 		_ = s
 
 		i = i + 1
@@ -2542,13 +2524,7 @@ func compileFunction(f Function) string {
 			}
 
 		}
-		param := f.Params[i]
-		_ = param
-
-		typ := param.Type
-		_ = typ
-
-		s = s + param.Name + " " + compileType(typ)
+		s = s + param.Name + " " + compileType(f.Params[i].Type)
 		_ = s
 
 		if i < len(f.Params)-1 {
