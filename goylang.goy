@@ -750,9 +750,7 @@ func parseEnum(tokens []Token) (Enum, []Token) {
 
     if (peekToken(tokens, TokenType.LParen{})) {
       t, tokens = consumeToken(tokens, TokenType.LParen{})
-      typ := ""
-      typ, tokens = parseType(tokens)
-      variant.Type = typ
+      variant.Type, tokens = parseType(tokens)
       t, tokens = consumeToken(tokens, TokenType.RParen{})
     }
 
