@@ -278,6 +278,7 @@ func lex(dat []byte) []Token {
 			tokens = append(tokens, Token{Reassignment, string([]byte{dat[i]})})
 		} else if dat[i] == ',' {
 			tokens = append(tokens, Token{Comma, string([]byte{dat[i]})})
+			// double quoted string literals
 		} else if dat[i] == '"' {
 			thisStringLit := []byte{dat[i]}
 			i += 1
@@ -295,6 +296,21 @@ func lex(dat []byte) []Token {
 				}
 			}
 			thisStringLit = append(thisStringLit, '"')
+			tokens = append(tokens, Token{StringLiteral, string(thisStringLit)})
+			// backtick quoted string literals
+		} else if dat[i] == '`' {
+			thisStringLit := []byte{dat[i]}
+			i += 1
+			for dat[i] != '`' {
+				if dat[i] == '\\' && dat[i+1] == '\\' {
+					thisStringLit = append(thisStringLit, dat[i], dat[i+1])
+					i += 2
+				} else {
+					thisStringLit = append(thisStringLit, dat[i])
+					i += 1
+				}
+			}
+			thisStringLit = append(thisStringLit, '`')
 			tokens = append(tokens, Token{StringLiteral, string(thisStringLit)})
 		} else {
 			panic(fmt.Sprintf("unrecognized character %c", dat[i]))

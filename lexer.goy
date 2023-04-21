@@ -166,11 +166,30 @@ func lex(dat []byte) []Token {
 		} else if (nc(dat, i, ".")) {
 			tokens = append(tokens, Token{TokenType.Dot{}, "."})
 			i = i + 1
+        // double quoted string literals
 		} else if (nc(dat, i, "\"")) {
 			str := bs("\"")
 			i = i + 1
 			while {
 				if (nc(dat, i, "\"")) {
+					str = append(str, dat[i])
+					i = i + 1
+					break
+				} else if (nc(dat, i, "\\\"")) {
+					str = append(str, dat[i], dat[i + 1])
+					i = i + 2
+				} else {
+					str = append(str, dat[i])
+					i = i + 1
+				}
+			}
+			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
+        // backtick quoted string literals
+		} else if (nc(dat, i, "`")) {
+			str := bs("`")
+			i = i + 1
+			while {
+				if (nc(dat, i, "`")) {
 					str = append(str, dat[i])
 					i = i + 1
 					break
@@ -930,7 +949,7 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
 }
 
 func compile(program Program) string {
-    s := ""
+    s := "package main\n\n"
     i := 0
     while {
         if (i >= len(program.Declarations)) {
@@ -1172,12 +1191,12 @@ func compileIf(ifStmt If) string {
     s = s + " {\n"
     ifBody := ifStmt.IfBody
     s = s + compileExpr(ifBody)
-    s = s + "\n}\n"
+    s = s + "\n}"
     elseBody := ifStmt.ElseBody
     if (elseBody != nil) {
         s = s + "else {\n"
         s = s + compileStatement(elseBody)
-        s = s + "\n}\n"
+        s = s + "\n}"
     }
     return s
 }
@@ -1218,20 +1237,7 @@ func compileExpr(expr Expr) string {
             return compileExpr(lhs) + " " + op + " " + compileExpr(rhs)
         },
         Expr.Block { block }: {
-            s := "{"
-            stmts := block.Statements
-            i := 0
-            while {
-                if (i >= len(stmts)) {
-                    break
-                }
-
-                stmt := stmts[i]
-                //s = s + "\n" + compileStatement(stmt)
-                i = i + 1
-            }
-            s = s + "\n}"
-            return s
+            return compileBlock(block)
         },
         Expr.ArrayAccess { aa }: {
             lhs := aa.LHS
@@ -1360,4 +1366,69 @@ func main() {
 	tokens := lex(dat)
 	program := parseProgram(tokens)
 	fmt.Println(compile(program))
+}
+
+func prelude() string {
+	return `func slice[T any](s []T, i... int) []T {
+	if len(i) == 0 {
+		return s
+	}
+	if len(i) == 1 {
+		return s[i[0]:]
+	}
+	if len(i) > 2 {
+		panic("slice takes at most 2 arguments")
+	}
+    return s[i[0]:i[1]]
+}
+
+func atoi(s string) int {
+	var i int
+	for _, c := range s {
+		i *= 10
+		i += int(c - '0')
+	}
+	return i
+}
+
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+func isAlpha(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}
+
+func not(b bool) bool {
+	return !b
+}
+
+func c(s string) byte {
+	return s[0]
+}
+
+func nc(bs []byte, i int, s string) bool {
+	for j, c := range s {
+		if bs[i+j] != byte(c) {
+			return false
+		}
+	}
+	return true
+}
+
+func sprintf(format string, args ...interface{}) string {
+	return fmt.Sprintf(format, args...)
+}
+
+func print(args ...interface{}) {
+	for _, arg := range args {
+		fmt.Printf("%#v\n", arg)
+	}
+	return
+}
+
+func bs(s string) []byte {
+	return []byte(s)
+}
+`
 }
