@@ -34,6 +34,11 @@ enum TokenType {
 struct Token {
 	Type TokenType,
 	Value string,
+	Loc int,
+}
+
+func newToken(tt TokenType, value string, loc int) Token {
+    return Token{tt, value, loc}
 }
 
 func eqany(xs []byte, x byte) bool {
@@ -80,7 +85,7 @@ func lex(dat []byte) []Token {
 		} else if (nc(dat, i, "//")) {
 			while {
 				if (nc(dat, i, "\n")) {
-					tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
+					tokens = append(tokens, newToken(TokenType.Newline{}, "\n", i))
 					break
 				} else {
 					i = i + 1
@@ -94,29 +99,29 @@ func lex(dat []byte) []Token {
 					i = i + 1
 				} else {
 					if (string(ident) == "enum") {
-						tokens = append(tokens, Token{TokenType.EnumDecl{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.EnumDecl{}, string(ident), i))
 					} else if (string(ident) == "import") {
-						tokens = append(tokens, Token{TokenType.Import{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Import{}, string(ident), i))
 					} else if (string(ident) == "struct") {
-						tokens = append(tokens, Token{TokenType.Struct{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Struct{}, string(ident), i))
 					} else if (string(ident) == "func") {
-						tokens = append(tokens, Token{TokenType.FuncDecl{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.FuncDecl{}, string(ident), i))
 					} else if (string(ident) == "while") {
-						tokens = append(tokens, Token{TokenType.While{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.While{}, string(ident), i))
 					} else if (string(ident) == "if") {
-						tokens = append(tokens, Token{TokenType.If{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.If{}, string(ident), i))
 					} else if (string(ident) == "return") {
-						tokens = append(tokens, Token{TokenType.Return{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Return{}, string(ident), i))
 					} else if (string(ident) == "else") {
-						tokens = append(tokens, Token{TokenType.Else{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Else{}, string(ident), i))
 					} else if (string(ident) == "break") {
-						tokens = append(tokens, Token{TokenType.Break{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Break{}, string(ident), i))
 					} else if (string(ident) == "continue") {
-						tokens = append(tokens, Token{TokenType.Continue{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Continue{}, string(ident), i))
 					} else if (string(ident) == "match") {
-						tokens = append(tokens, Token{TokenType.Match{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Match{}, string(ident), i))
 					} else {
-						tokens = append(tokens, Token{TokenType.Ident{}, string(ident)})
+						tokens = append(tokens, newToken(TokenType.Ident{}, string(ident), i))
 					}
 					break
 				}
@@ -129,45 +134,46 @@ func lex(dat []byte) []Token {
 			  	n = append(n, dat[i])
 			  	i = i + 1
 			  } else {
-			    tokens = append(tokens, Token{TokenType.IntLiteral{}, string(n)})
+			    tokens = append(tokens, newToken(TokenType.IntLiteral{}, string(n), i))
 			    break
 			  }
 		  }
 		} else if (nc(dat, i, "{")) {
-			tokens = append(tokens, Token{TokenType.LCurly{}, "{"})
+			tokens = append(tokens, newToken(TokenType.LCurly{}, "{", i))
 			i = i + 1
 		} else if (nc(dat, i, "}")) {
-			tokens = append(tokens, Token{TokenType.RCurly{}, "}"})
+			tokens = append(tokens, newToken(TokenType.RCurly{}, "}", i))
 			i = i + 1
 		} else if (nc(dat, i, "[")) {
-			tokens = append(tokens, Token{TokenType.LBracket{}, "["})
+			tokens = append(tokens, newToken(TokenType.LBracket{}, "[", i))
 			i = i + 1
 		} else if (nc(dat, i, "]")) {
-			tokens = append(tokens, Token{TokenType.RBracket{}, "]"})
+			tokens = append(tokens, newToken(TokenType.RBracket{}, "]", i))
 			i = i + 1
 		} else if (nc(dat, i, "(")) {
-			tokens = append(tokens, Token{TokenType.LParen{}, "("})
+			tokens = append(tokens, newToken(TokenType.LParen{}, "(", i))
 			i = i + 1
 		} else if (nc(dat, i, ")")) {
-			tokens = append(tokens, Token{TokenType.RParen{}, ")"})
+			tokens = append(tokens, newToken(TokenType.RParen{}, ")", i))
 			i = i + 1
 		} else if (nc(dat, i, "\n")) {
-			tokens = append(tokens, Token{TokenType.Newline{}, "\n"})
+			tokens = append(tokens, newToken(TokenType.Newline{}, "\n", i))
 			i = i + 1
 		} else if (nc(dat, i, "\r\n")) {
-			tokens = append(tokens, Token{TokenType.Newline{}, "\r\n"})
+			tokens = append(tokens, newToken(TokenType.Newline{}, "\r\n", i))
 			i = i + 2
 		} else if (nc(dat, i, ",")) {
-			tokens = append(tokens, Token{TokenType.Comma{}, ","})
+			tokens = append(tokens, newToken(TokenType.Comma{}, ",", i))
 			i = i + 1
 		} else if (nc(dat, i, ":")) {
-			tokens = append(tokens, Token{TokenType.Colon{}, ":"})
+			tokens = append(tokens, newToken(TokenType.Colon{}, ":", i))
 			i = i + 1
 		} else if (nc(dat, i, ".")) {
-			tokens = append(tokens, Token{TokenType.Dot{}, "."})
+			tokens = append(tokens, newToken(TokenType.Dot{}, ".", i))
 			i = i + 1
         // double quoted string literals
 		} else if (nc(dat, i, "\"")) {
+		    iStart := i
 			str := bs("\"")
 			i = i + 1
 			while {
@@ -183,9 +189,10 @@ func lex(dat []byte) []Token {
 					i = i + 1
 				}
 			}
-			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
+			tokens = append(tokens, newToken(TokenType.StringLiteral{}, string(str), iStart))
         // backtick quoted string literals
 		} else if (nc(dat, i, "`")) {
+		    iStart := i
 			str := bs("`")
 			i = i + 1
 			while {
@@ -201,14 +208,14 @@ func lex(dat []byte) []Token {
 					i = i + 1
 				}
 			}
-			tokens = append(tokens, Token{TokenType.StringLiteral{}, string(str)})
+			tokens = append(tokens, newToken(TokenType.StringLiteral{}, string(str), iStart))
 		} else {
             str := peekBinaryOp(dat, i)
             if (len(str) > 0) {
-              tokens = append(tokens, Token{TokenType.BinaryOp{}, str})
+              tokens = append(tokens, newToken(TokenType.BinaryOp{}, str, i))
               i = i + len(str)
 		    } else if (nc(dat, i, "=")) {
-			  tokens = append(tokens, Token{TokenType.Equals{}, "="})
+			  tokens = append(tokens, newToken(TokenType.Equals{}, "=", i))
 			  i = i + 1
             } else {
               panic(sprintf("unexpected token: |%c|\n\ntokens so far: %#v", dat[i], tokens))

@@ -140,6 +140,11 @@ func (_ TokenTypeContinue) _implementsTokenType() {}
 type Token struct {
 	Type  TokenType
 	Value string
+	Loc   int
+}
+
+func newToken(tt TokenType, value string, loc int) Token {
+	return Token{tt, value, loc}
 }
 
 func eqany(xs []byte, x byte) bool {
@@ -232,7 +237,7 @@ func lex(dat []byte) []Token {
 						for {
 							if nc(dat, i, "\n") {
 								{
-									tokens = append(tokens, Token{TokenTypeNewline{}, "\n"})
+									tokens = append(tokens, newToken(TokenTypeNewline{}, "\n", i))
 									_ = tokens
 
 									break
@@ -271,7 +276,7 @@ func lex(dat []byte) []Token {
 									{
 										if string(ident) == "enum" {
 											{
-												tokens = append(tokens, Token{TokenTypeEnumDecl{}, string(ident)})
+												tokens = append(tokens, newToken(TokenTypeEnumDecl{}, string(ident), i))
 												_ = tokens
 
 											}
@@ -279,7 +284,7 @@ func lex(dat []byte) []Token {
 										} else {
 											if string(ident) == "import" {
 												{
-													tokens = append(tokens, Token{TokenTypeImport{}, string(ident)})
+													tokens = append(tokens, newToken(TokenTypeImport{}, string(ident), i))
 													_ = tokens
 
 												}
@@ -287,7 +292,7 @@ func lex(dat []byte) []Token {
 											} else {
 												if string(ident) == "struct" {
 													{
-														tokens = append(tokens, Token{TokenTypeStruct{}, string(ident)})
+														tokens = append(tokens, newToken(TokenTypeStruct{}, string(ident), i))
 														_ = tokens
 
 													}
@@ -295,7 +300,7 @@ func lex(dat []byte) []Token {
 												} else {
 													if string(ident) == "func" {
 														{
-															tokens = append(tokens, Token{TokenTypeFuncDecl{}, string(ident)})
+															tokens = append(tokens, newToken(TokenTypeFuncDecl{}, string(ident), i))
 															_ = tokens
 
 														}
@@ -303,7 +308,7 @@ func lex(dat []byte) []Token {
 													} else {
 														if string(ident) == "while" {
 															{
-																tokens = append(tokens, Token{TokenTypeWhile{}, string(ident)})
+																tokens = append(tokens, newToken(TokenTypeWhile{}, string(ident), i))
 																_ = tokens
 
 															}
@@ -311,7 +316,7 @@ func lex(dat []byte) []Token {
 														} else {
 															if string(ident) == "if" {
 																{
-																	tokens = append(tokens, Token{TokenTypeIf{}, string(ident)})
+																	tokens = append(tokens, newToken(TokenTypeIf{}, string(ident), i))
 																	_ = tokens
 
 																}
@@ -319,7 +324,7 @@ func lex(dat []byte) []Token {
 															} else {
 																if string(ident) == "return" {
 																	{
-																		tokens = append(tokens, Token{TokenTypeReturn{}, string(ident)})
+																		tokens = append(tokens, newToken(TokenTypeReturn{}, string(ident), i))
 																		_ = tokens
 
 																	}
@@ -327,7 +332,7 @@ func lex(dat []byte) []Token {
 																} else {
 																	if string(ident) == "else" {
 																		{
-																			tokens = append(tokens, Token{TokenTypeElse{}, string(ident)})
+																			tokens = append(tokens, newToken(TokenTypeElse{}, string(ident), i))
 																			_ = tokens
 
 																		}
@@ -335,7 +340,7 @@ func lex(dat []byte) []Token {
 																	} else {
 																		if string(ident) == "break" {
 																			{
-																				tokens = append(tokens, Token{TokenTypeBreak{}, string(ident)})
+																				tokens = append(tokens, newToken(TokenTypeBreak{}, string(ident), i))
 																				_ = tokens
 
 																			}
@@ -343,7 +348,7 @@ func lex(dat []byte) []Token {
 																		} else {
 																			if string(ident) == "continue" {
 																				{
-																					tokens = append(tokens, Token{TokenTypeContinue{}, string(ident)})
+																					tokens = append(tokens, newToken(TokenTypeContinue{}, string(ident), i))
 																					_ = tokens
 
 																				}
@@ -351,14 +356,14 @@ func lex(dat []byte) []Token {
 																			} else {
 																				if string(ident) == "match" {
 																					{
-																						tokens = append(tokens, Token{TokenTypeMatch{}, string(ident)})
+																						tokens = append(tokens, newToken(TokenTypeMatch{}, string(ident), i))
 																						_ = tokens
 
 																					}
 
 																				} else {
 																					{
-																						tokens = append(tokens, Token{TokenTypeIdent{}, string(ident)})
+																						tokens = append(tokens, newToken(TokenTypeIdent{}, string(ident), i))
 																						_ = tokens
 
 																					}
@@ -402,7 +407,7 @@ func lex(dat []byte) []Token {
 
 									} else {
 										{
-											tokens = append(tokens, Token{TokenTypeIntLiteral{}, string(n)})
+											tokens = append(tokens, newToken(TokenTypeIntLiteral{}, string(n), i))
 											_ = tokens
 
 											break
@@ -416,7 +421,7 @@ func lex(dat []byte) []Token {
 						} else {
 							if nc(dat, i, "{") {
 								{
-									tokens = append(tokens, Token{TokenTypeLCurly{}, "{"})
+									tokens = append(tokens, newToken(TokenTypeLCurly{}, "{", i))
 									_ = tokens
 
 									i = i + 1
@@ -427,7 +432,7 @@ func lex(dat []byte) []Token {
 							} else {
 								if nc(dat, i, "}") {
 									{
-										tokens = append(tokens, Token{TokenTypeRCurly{}, "}"})
+										tokens = append(tokens, newToken(TokenTypeRCurly{}, "}", i))
 										_ = tokens
 
 										i = i + 1
@@ -438,7 +443,7 @@ func lex(dat []byte) []Token {
 								} else {
 									if nc(dat, i, "[") {
 										{
-											tokens = append(tokens, Token{TokenTypeLBracket{}, "["})
+											tokens = append(tokens, newToken(TokenTypeLBracket{}, "[", i))
 											_ = tokens
 
 											i = i + 1
@@ -449,7 +454,7 @@ func lex(dat []byte) []Token {
 									} else {
 										if nc(dat, i, "]") {
 											{
-												tokens = append(tokens, Token{TokenTypeRBracket{}, "]"})
+												tokens = append(tokens, newToken(TokenTypeRBracket{}, "]", i))
 												_ = tokens
 
 												i = i + 1
@@ -460,7 +465,7 @@ func lex(dat []byte) []Token {
 										} else {
 											if nc(dat, i, "(") {
 												{
-													tokens = append(tokens, Token{TokenTypeLParen{}, "("})
+													tokens = append(tokens, newToken(TokenTypeLParen{}, "(", i))
 													_ = tokens
 
 													i = i + 1
@@ -471,7 +476,7 @@ func lex(dat []byte) []Token {
 											} else {
 												if nc(dat, i, ")") {
 													{
-														tokens = append(tokens, Token{TokenTypeRParen{}, ")"})
+														tokens = append(tokens, newToken(TokenTypeRParen{}, ")", i))
 														_ = tokens
 
 														i = i + 1
@@ -482,7 +487,7 @@ func lex(dat []byte) []Token {
 												} else {
 													if nc(dat, i, "\n") {
 														{
-															tokens = append(tokens, Token{TokenTypeNewline{}, "\n"})
+															tokens = append(tokens, newToken(TokenTypeNewline{}, "\n", i))
 															_ = tokens
 
 															i = i + 1
@@ -493,7 +498,7 @@ func lex(dat []byte) []Token {
 													} else {
 														if nc(dat, i, "\r\n") {
 															{
-																tokens = append(tokens, Token{TokenTypeNewline{}, "\r\n"})
+																tokens = append(tokens, newToken(TokenTypeNewline{}, "\r\n", i))
 																_ = tokens
 
 																i = i + 2
@@ -504,7 +509,7 @@ func lex(dat []byte) []Token {
 														} else {
 															if nc(dat, i, ",") {
 																{
-																	tokens = append(tokens, Token{TokenTypeComma{}, ","})
+																	tokens = append(tokens, newToken(TokenTypeComma{}, ",", i))
 																	_ = tokens
 
 																	i = i + 1
@@ -515,7 +520,7 @@ func lex(dat []byte) []Token {
 															} else {
 																if nc(dat, i, ":") {
 																	{
-																		tokens = append(tokens, Token{TokenTypeColon{}, ":"})
+																		tokens = append(tokens, newToken(TokenTypeColon{}, ":", i))
 																		_ = tokens
 
 																		i = i + 1
@@ -526,7 +531,7 @@ func lex(dat []byte) []Token {
 																} else {
 																	if nc(dat, i, ".") {
 																		{
-																			tokens = append(tokens, Token{TokenTypeDot{}, "."})
+																			tokens = append(tokens, newToken(TokenTypeDot{}, ".", i))
 																			_ = tokens
 
 																			i = i + 1
@@ -537,6 +542,9 @@ func lex(dat []byte) []Token {
 																	} else {
 																		if nc(dat, i, "\"") {
 																			{
+																				iStart := i
+																				_ = iStart
+
 																				str := bs("\"")
 																				_ = str
 
@@ -580,7 +588,7 @@ func lex(dat []byte) []Token {
 																					}
 																				}
 
-																				tokens = append(tokens, Token{TokenTypeStringLiteral{}, string(str)})
+																				tokens = append(tokens, newToken(TokenTypeStringLiteral{}, string(str), iStart))
 																				_ = tokens
 
 																			}
@@ -588,6 +596,9 @@ func lex(dat []byte) []Token {
 																		} else {
 																			if nc(dat, i, "`") {
 																				{
+																					iStart := i
+																					_ = iStart
+
 																					str := bs("`")
 																					_ = str
 
@@ -631,7 +642,7 @@ func lex(dat []byte) []Token {
 																						}
 																					}
 
-																					tokens = append(tokens, Token{TokenTypeStringLiteral{}, string(str)})
+																					tokens = append(tokens, newToken(TokenTypeStringLiteral{}, string(str), iStart))
 																					_ = tokens
 
 																				}
@@ -643,7 +654,7 @@ func lex(dat []byte) []Token {
 
 																					if len(str) > 0 {
 																						{
-																							tokens = append(tokens, Token{TokenTypeBinaryOp{}, str})
+																							tokens = append(tokens, newToken(TokenTypeBinaryOp{}, str, i))
 																							_ = tokens
 
 																							i = i + len(str)
@@ -654,7 +665,7 @@ func lex(dat []byte) []Token {
 																					} else {
 																						if nc(dat, i, "=") {
 																							{
-																								tokens = append(tokens, Token{TokenTypeEquals{}, "="})
+																								tokens = append(tokens, newToken(TokenTypeEquals{}, "=", i))
 																								_ = tokens
 
 																								i = i + 1
