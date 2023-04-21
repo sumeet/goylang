@@ -1024,16 +1024,13 @@ func compileFunction(f Function) string {
         if (i >= len(f.Params)) {
             break
         }
-        s = s + param.Name + " " + compileType(f.Params[i].Type)
+        s = s + f.Params[i].Name + " " + compileType(f.Params[i].Type)
         if (i < len(f.Params) - 1) {
             s = s + ", "
         }
         i = i + 1
     }
-
-    returnTypes := f.ReturnTypes
-    body := f.Body
-    s = s + ") " + compileReturnTypes(returnTypes) + compileBlock(body)
+    s = s + ") " + compileReturnTypes(f.ReturnTypes) + compileBlock(f.Body)
     return s
 }
 
@@ -1044,9 +1041,7 @@ func compileBlock(b Block) string {
         if (i >= len(b.Statements)) {
             break
         }
-        statement := b.Statements[i]
-        s = s + compileStatement(statement)
-        s = s + "\n"
+        s = s + compileStatement(b.Statements[i]) + "\n"
         i = i + 1
     }
     s = s + "}\n"
@@ -1095,29 +1090,24 @@ func compileMatch(m Match) string {
     // create a new anonymous block
     s := "{\n"
 
-    matched := m.Matched
-    s = s + MatchExprVarName() + " := " + compileExpr(matched) + "\n"
+    s = s + MatchExprVarName() + " := " + compileExpr(m.Matched) + "\n"
     // TODO: probably need stfu in here
 
     i := 0
-    arms := m.Arms
     while {
-        if (i >= len(arms)) {
+        if (i >= len(m.Arms)) {
             break
         }
 
-        arm := arms[i]
         if (i == 0) {
             s = s + "if "
         } else {
             s = s + " else if "
         }
-        pat := arm.Pattern
-        s = s + compileMatchPatternTestExpr(pat) + " {\n"
+        s = s + compileMatchPatternTestExpr(m.Arms[i].Pattern) + " {\n"
         s = s + stfuUnusedVars(LValue.Variable { BindingVarName() }) + "\n"
-        s = s + compileBindingForMatchPattern(pat)
-        body := arm.Body
-        s = s + compileExpr(body)
+        s = s + compileBindingForMatchPattern(m.Arms[i].Pattern)
+        s = s + compileExpr(m.Arms[i].Body)
         s = s + "\n}"
 
         i = i + 1

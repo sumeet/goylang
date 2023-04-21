@@ -2524,7 +2524,7 @@ func compileFunction(f Function) string {
 			}
 
 		}
-		s = s + param.Name + " " + compileType(f.Params[i].Type)
+		s = s + f.Params[i].Name + " " + compileType(f.Params[i].Type)
 		_ = s
 
 		if i < len(f.Params)-1 {
@@ -2540,13 +2540,7 @@ func compileFunction(f Function) string {
 
 	}
 
-	returnTypes := f.ReturnTypes
-	_ = returnTypes
-
-	body := f.Body
-	_ = body
-
-	s = s + ") " + compileReturnTypes(returnTypes) + compileBlock(body)
+	s = s + ") " + compileReturnTypes(f.ReturnTypes) + compileBlock(f.Body)
 	_ = s
 
 	return s
@@ -2566,13 +2560,7 @@ func compileBlock(b Block) string {
 			}
 
 		}
-		statement := b.Statements[i]
-		_ = statement
-
-		s = s + compileStatement(statement)
-		_ = s
-
-		s = s + "\n"
+		s = s + compileStatement(b.Statements[i]) + "\n"
 		_ = s
 
 		i = i + 1
