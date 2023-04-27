@@ -2,6 +2,10 @@ import "os"
 import "fmt"
 import "strconv"
 
+// BIG TODOS:
+// Type is now a string, but it should be a type
+// - details TBD
+
 enum TokenType {
 	FuncDecl,
 	LParen,
@@ -233,7 +237,7 @@ enum Declaration {
 
 struct FunctionParam {
     Name string,
-    Type string, // TODO: this should be a Type probably?
+    Type string,
 }
 
 struct Function {
@@ -699,7 +703,8 @@ func parseBlock(tokens []Token) (Block, []Token) {
     return Block{stmts}, tokens
 }
 
-struct Program {
+struct Module {
+    Filename string,
 	Declarations []Declaration,
 }
 
@@ -879,8 +884,9 @@ func parseDeclaration(tokens []Token) (Declaration, []Token) {
   panic(fmt.Sprintf("unexpected token: %#v", tokens[0]))
 }
 
-func parseProgram(tokens []Token) Program {
-	p := Program{}
+func parseModule(tokens []Token, filename string) Module {
+	m := Module{}
+	m.Filename = filename
 	while {
 	  tokens = skipNewlines(tokens)
 	  if (len(tokens) == 0) {
@@ -889,9 +895,9 @@ func parseProgram(tokens []Token) Program {
 
 	  declaration, tokens2 := parseDeclaration(tokens)
 	  tokens = tokens2
-	  p.Declarations = append(p.Declarations, declaration)
+	  m.Declarations = append(m.Declarations, declaration)
 	}
-	return p
+	return m
 }
 
 func skipNewlines(tokens []Token) []Token {
@@ -952,7 +958,7 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
   return tokens[0], slice(tokens, 1)
 }
 
-func compile(program Program) string {
+func compile(program Module) string {
     s := "package main\n\n"
     i := 0
     while {
@@ -1362,12 +1368,13 @@ func main() {
     return
   }
 
-	dat, err := os.ReadFile(os.Args[1])
+    filename := os.Args[1]
+	dat, err := os.ReadFile(filename)
 	if (err != nil) {
 		panic(err)
 	}
 	tokens := lex(dat)
-	program := parseProgram(tokens)
+	program := parseModule(tokens, filename)
 	fmt.Println(compile(program))
 }
 

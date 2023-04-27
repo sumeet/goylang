@@ -1841,7 +1841,8 @@ func parseBlock(tokens []Token) (Block, []Token) {
 	return Block{stmts}, tokens
 }
 
-type Program struct {
+type Module struct {
+	Filename     string
 	Declarations []Declaration
 }
 
@@ -2258,9 +2259,12 @@ func parseDeclaration(tokens []Token) (Declaration, []Token) {
 	panic(fmt.Sprintf("unexpected token: %#v", tokens[0]))
 }
 
-func parseProgram(tokens []Token) Program {
-	p := Program{}
-	_ = p
+func parseModule(tokens []Token, filename string) Module {
+	m := Module{}
+	_ = m
+
+	m.Filename = filename
+	_ = m.Filename
 
 	for {
 		tokens = skipNewlines(tokens)
@@ -2279,12 +2283,12 @@ func parseProgram(tokens []Token) Program {
 		tokens = tokens2
 		_ = tokens
 
-		p.Declarations = append(p.Declarations, declaration)
-		_ = p.Declarations
+		m.Declarations = append(m.Declarations, declaration)
+		_ = m.Declarations
 
 	}
 
-	return p
+	return m
 }
 
 func skipNewlines(tokens []Token) []Token {
@@ -2392,7 +2396,7 @@ func consumeToken(tokens []Token, expectedType TokenType) (Token, []Token) {
 	return tokens[0], slice(tokens, 1)
 }
 
-func compile(program Program) string {
+func compile(program Module) string {
 	s := "package main\n\n"
 	_ = s
 
@@ -2994,13 +2998,7 @@ func compileLValue(lValue LValue) string {
 			dotLValue := binding.Value
 			_ = dotLValue
 			{
-				lhs := dotLValue.LHS
-				_ = lhs
-
-				rhs := dotLValue.RHS
-				_ = rhs
-
-				return compileLValue(lhs) + "." + compileLValue(rhs)
+				return compileLValue(dotLValue.LHS) + "." + compileLValue(dotLValue.RHS)
 			}
 
 		}
@@ -3178,10 +3176,7 @@ func compileEnumStructs(e Enum) string {
 
 		if variant.Type != "" {
 			{
-				typ := variant.Type
-				_ = typ
-
-				s = s + "Value " + compileType(typ) + "\n"
+				s = s + "Value " + compileType(variant.Type) + "\n"
 				_ = s
 
 			}
@@ -3209,7 +3204,10 @@ func main() {
 		}
 
 	}
-	dat, err := os.ReadFile(os.Args[1])
+	filename := os.Args[1]
+	_ = filename
+
+	dat, err := os.ReadFile(filename)
 	_ = dat
 	_ = err
 
@@ -3222,7 +3220,7 @@ func main() {
 	tokens := lex(dat)
 	_ = tokens
 
-	program := parseProgram(tokens)
+	program := parseModule(tokens, filename)
 	_ = program
 
 	fmt.Println(compile(program))
