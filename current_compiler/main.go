@@ -1853,11 +1853,13 @@ type Import struct {
 type Enum struct {
 	Name     string
 	Variants []EnumVariant
+	Loc      int
 }
 
 type EnumVariant struct {
 	Name string
 	Type string
+	Loc  int
 }
 
 type Struct struct {
@@ -3196,6 +3198,60 @@ func compileEnumStructs(e Enum) string {
 	return s
 }
 
+type FileLoc struct {
+	Filename string
+	Col      int
+	Line     int
+}
+
+func scanLinesAndColumns(filename string, bytes []byte) map[int]FileLoc {
+	acc := mapIntFileLoc()
+	_ = acc
+
+	col := 0
+	_ = col
+
+	line := 0
+	_ = line
+
+	i := 0
+	_ = i
+
+	for {
+		if i >= len(bytes) {
+			{
+				break
+			}
+
+		} else {
+			if bytes[i] == c("\n") {
+				{
+					col = 0
+					_ = col
+
+					line = line + 1
+					_ = line
+
+				}
+
+			} else {
+				{
+					col = col + 1
+					_ = col
+
+				}
+
+			}
+		}
+		setMap(acc, i, FileLoc{filename, col, line})
+		i = i + 1
+		_ = i
+
+	}
+
+	return acc
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		{
@@ -3217,6 +3273,9 @@ func main() {
 		}
 
 	}
+	locByByteIndex := scanLinesAndColumns(filename, dat)
+	_ = locByByteIndex
+
 	tokens := lex(dat)
 	_ = tokens
 
@@ -3238,6 +3297,15 @@ func prelude() string {
 		panic("slice takes at most 2 arguments")
 	}
     return s[i[0]:i[1]]
+}
+
+func mapIntFileLoc() map[int]FileLoc {
+    return map[int]FileLoc{}
+}
+
+// this is because we don't support assigning to subscripting in the goylang compiler
+func setMap[K comparable, V any](m map[K]V, k K, v V) {
+	m[k] = v
 }
 
 func atoi(s string) int {
@@ -3302,6 +3370,14 @@ func slice[T any](s []T, i ...int) []T {
 		panic("slice takes at most 2 arguments")
 	}
 	return s[i[0]:i[1]]
+}
+
+func mapIntFileLoc() map[int]FileLoc {
+	return map[int]FileLoc{}
+}
+
+func setMap[K comparable, V any](m map[K]V, k K, v V) {
+	m[k] = v
 }
 
 func atoi(s string) int {

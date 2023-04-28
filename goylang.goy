@@ -715,11 +715,13 @@ struct Import {
 struct Enum {
 	Name string,
 	Variants []EnumVariant,
+	Loc int,
 }
 
 struct EnumVariant {
     Name string,
     Type string, // TODO: this should be a Type probably?   (can be empty)
+    Loc int,
 }
 
 struct Struct {
@@ -1369,20 +1371,21 @@ struct FileLoc {
 }
 
 func scanLinesAndColumns(filename string, bytes []byte) map[int]FileLoc {
-    acc := mapIntFileloc()
+    acc := mapIntFileLoc()
     col := 0
     line := 0
     i := 0
     while {
         if (i >= len(bytes)) {
             break
-        } else if (b == c("\n")) {
+        } else if (bytes[i] == c("\n")) {
             col = 0
             line = line + 1
         } else {
             col = col + 1
         }
-        //acc[i] = FileLoc{filename, col, line}
+        setMap(acc, i, FileLoc{filename, col, line})
+        i = i + 1
     }
     return acc
 }
@@ -1417,6 +1420,11 @@ func prelude() string {
 
 func mapIntFileLoc() map[int]FileLoc {
     return map[int]FileLoc{}
+}
+
+// this is because we don't support assigning to subscripting in the goylang compiler
+func setMap[K comparable, V any](m map[K]V, k K, v V) {
+	m[k] = v
 }
 
 func atoi(s string) int {
