@@ -232,6 +232,7 @@ enum Declaration {
 	Enum(Enum),
 	Import(Import),
 	Struct(Struct),
+	// TODO: needs loc:
 	Function(Function),
 }
 
@@ -710,6 +711,7 @@ struct Module {
 
 struct Import {
   Path string,
+  Loc int,
 }
 
 struct Enum {
@@ -727,17 +729,20 @@ struct EnumVariant {
 struct Struct {
     Name string,
     Fields []StructField,
+    Loc int,
 }
 
 struct StructField {
     Name string,
     Type string, // TODO: this should be a Type probably?
+    Loc int,
 }
 
 func parseImport(tokens []Token) (Import, []Token) {
   t, tokens := consumeToken(tokens, TokenType.Import{})
+  loc := t.Loc
   t, tokens = consumeToken(tokens, TokenType.StringLiteral{})
-  return Import{t.Value}, tokens
+  return Import{t.Value, loc}, tokens
 }
 
 func parseEnum(tokens []Token) (Enum, []Token) {
@@ -770,24 +775,26 @@ func parseEnum(tokens []Token) (Enum, []Token) {
 }
 
 func parseStruct(tokens []Token) (Struct, []Token) {
-  t, tokens := consumeToken(tokens, TokenType.Struct{})
-  t, tokens = consumeToken(tokens, TokenType.Ident{})
-  s := Struct{}
-  s.Name = t.Value
-  t, tokens = consumeToken(tokens, TokenType.LCurly{})
-  while {
-    if (peekToken(tokens, TokenType.RCurly{})) {
-      t, tokens = consumeToken(tokens, TokenType.RCurly{})
-      break
-    }
-    field := StructField{}
+    t, tokens := consumeToken(tokens, TokenType.Struct{})
     t, tokens = consumeToken(tokens, TokenType.Ident{})
-    field.Name = t.Value
-    field.Type, tokens = parseType(tokens)
-    s.Fields = append(s.Fields, field)
-    t, tokens = consumeToken(tokens, TokenType.Comma{})
-  }
-  return s, tokens
+    s := Struct{}
+    s.Name = t.Value
+    s.Loc = t.Loc
+    t, tokens = consumeToken(tokens, TokenType.LCurly{})
+    while {
+        if (peekToken(tokens, TokenType.RCurly{})) {
+            t, tokens = consumeToken(tokens, TokenType.RCurly{})
+            break
+        }
+        field := StructField{}
+        t, tokens = consumeToken(tokens, TokenType.Ident{})
+        field.Name = t.Value
+        field.Loc = t.Loc
+        field.Type, tokens = parseType(tokens)
+        s.Fields = append(s.Fields, field)
+        t, tokens = consumeToken(tokens, TokenType.Comma{})
+    }
+    return s, tokens
 }
 
 func parseType(tokens []Token) (string, []Token) {
