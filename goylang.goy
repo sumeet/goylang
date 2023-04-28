@@ -232,13 +232,7 @@ enum Declaration {
 	Enum(Enum),
 	Import(Import),
 	Struct(Struct),
-	// TODO: needs loc:
 	Function(Function),
-}
-
-struct FunctionParam {
-    Name string,
-    Type string,
 }
 
 struct Function {
@@ -246,6 +240,14 @@ struct Function {
     Params []FunctionParam,
     ReturnTypes []string,
     Body Block,
+    // this is for the function keyword
+    Loc int,
+}
+
+struct FunctionParam {
+    Name string,
+    Type string,
+    Loc int,
 }
 
 enum LValue {
@@ -823,9 +825,11 @@ func parseType(tokens []Token) (string, []Token) {
 
 func parseFunction(tokens []Token) (Function, []Token) {
     t, tokens := consumeToken(tokens, TokenType.FuncDecl{})
+    loc := t.Loc
     t, tokens = consumeToken(tokens, TokenType.Ident{})
     f := Function{}
     f.Name = t.Value
+    f.Loc = loc
     t, tokens = consumeToken(tokens, TokenType.LParen{})
     while {
         if (peekToken(tokens, TokenType.RParen{})) {
@@ -836,6 +840,7 @@ func parseFunction(tokens []Token) (Function, []Token) {
         t, tokens = consumeToken(tokens, TokenType.Ident{})
         param.Name = t.Value
         param.Type, tokens = parseType(tokens)
+        param.Loc = t.Loc
         f.Params = append(f.Params, param)
         if (peekToken(tokens, TokenType.Comma{})) {
           t, tokens = consumeToken(tokens, TokenType.Comma{})
