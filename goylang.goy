@@ -745,6 +745,7 @@ func parseEnum(tokens []Token) (Enum, []Token) {
   t, tokens = consumeToken(tokens, TokenType.Ident{})
   e := Enum{}
   e.Name = t.Value
+  e.Loc = t.Loc
   t, tokens = consumeToken(tokens, TokenType.LCurly{})
   while {
     if (peekToken(tokens, TokenType.RCurly{})) {
@@ -754,6 +755,7 @@ func parseEnum(tokens []Token) (Enum, []Token) {
     t, tokens = consumeToken(tokens, TokenType.Ident{})
     variant := EnumVariant{}
     variant.Name = t.Value
+    variant.Loc = t.Loc
 
     if (peekToken(tokens, TokenType.LParen{})) {
       t, tokens = consumeToken(tokens, TokenType.LParen{})
