@@ -1,6 +1,10 @@
 import "os"
 import "fmt"
 import "strconv"
+import "bufio"
+import "io"
+import "strings"
+import "syscall"
 
 // BIG TODOS:
 // Type is now a string, but it should be a type
@@ -1404,19 +1408,63 @@ func scanLinesAndColumns(filename string, bytes []byte) map[int]FileLoc {
     return acc
 }
 
+func writeResponse(s string) {
+    fmt.Fprintf(os.Stdout, "Content-Length: %d", len(s))
+    os.Stdout.Write(rawB(13))
+    os.Stdout.Write(rawB(10))
+    os.Stdout.Write(rawB(13))
+    os.Stdout.Write(rawB(10))
+    fmt.Fprintf(os.Stdout, "%s", s)
+}
+
 func main() {
+    lspInitResponse := `{"jsonrpc":"2.0","result":{"capabilities":{"semanticTokensProvider":{"full":true,"legend":{"tokenModifiers":[],"tokenTypes":["number","string","operator","keyword","comment","function","struct"]},"workDoneProgress":false}}},"id":0}`
+
   if (len(os.Args) < 2) {
       fmt.Printf("Usage: ./%s <filename.goy>\n", os.Args[0])
       return
   }
+
   if (os.Args[1] == "--lsp") {
-    fmt.Fprintf(os.Stderr, "lsp mode in progress\n")
-    scanner := bufio.NewScanner(os.Stdin)
-    for scanner.Scan() {
-        input := scanner.Text()
-        fmt.Fprintf("got: %s", input)
+    output, err := os.Create("/tmp/lsp.output")
+    // redirect stderr to this file, so we can see what's going on
+    syscall.Dup2(int(output.Fd()), 2)
+    //syscall.Dup2(int(output.Fd()), 1)
+    if (err != nil) {
+        panic(err)
     }
-    fmt.Printf("lsp mode in progress\n")
+
+    fmt.Fprintf(output, "lsp mode in progress\n")
+    bufReader := bufio.NewReader(os.Stdin)
+    while {
+        s, err := bufReader.ReadString(c("\n"))
+        if (err == io.EOF) {
+            break
+        }
+        if (not(strings.HasPrefix(s, "Content-Length"))) {
+            panic(fmt.Sprintf("expected Content-Length but got %s", s))
+        }
+
+
+        s2, err := bufReader.ReadString(c("\n"))
+        if (err == io.EOF) {
+            break
+        }
+
+        fmt.Fprintf(output, "s is: %s", s)
+        ss := strings.Split(s, ": ")
+        nBytes, err := strconv.Atoi(strings.TrimSpace(ss[1]))
+        if (err != nil) {
+            panic(err)
+        }
+        buffer := makebytearray(nBytes)
+        n, err := io.ReadFull(bufReader, buffer)
+        if (err != nil) {
+            panic(err)
+        }
+        fmt.Fprintf(output, "got: %s\n", string(buffer))
+        writeResponse(lspInitResponse)
+    }
     return
   }
 
@@ -1469,6 +1517,10 @@ func isAlpha(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
+func rawB(n int) []byte {
+    return []byte{byte(n)}
+}
+
 func not(b bool) bool {
 	return !b
 }
@@ -1495,6 +1547,10 @@ func print(args ...interface{}) {
 		fmt.Printf("%#v\n", arg)
 	}
 	return
+}
+
+func makebytearray(n int) []byte {
+    return make([]byte, n)
 }
 
 func bs(s string) []byte {

@@ -1,5 +1,5 @@
 {
-  "name": "vscode-noulith",
+  "name": "vscode-goylang",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -15,22 +15,37 @@
     "vscode": "^1.65.0"
   },
   "activationEvents": [
-    "onLanguage:noulith"
+    "onLanguage:goylang"
   ],
   "configurationDefaults": {
-    "noulith": {
+    "goylang": {
       "editor.semanticHighlighting.enabled": true
     }
   },
   "contributes": {
+    "configuration": {
+      "properties": {
+        "goylang.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "verbose",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    },
     "languages": [
       {
-        "id": "noulith",
+        "id": "goylang",
         "aliases": [
-          "noulith"
+          "goylang"
         ],
         "extensions": [
-          ".noul"
+          ".goy"
         ]
       }
     ]

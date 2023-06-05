@@ -3299,6 +3299,10 @@ func prelude() string {
     return s[i[0]:i[1]]
 }
 
+func rawB(n int) []byte {
+    return []byte{byte(n)}
+}
+
 func mapIntFileLoc() map[int]FileLoc {
     return map[int]FileLoc{}
 }
@@ -3307,6 +3311,8 @@ func mapIntFileLoc() map[int]FileLoc {
 func setMap[K comparable, V any](m map[K]V, k K, v V) {
 	m[k] = v
 }
+
+type Writer io.Writer
 
 func atoi(s string) int {
 	var i int
@@ -3351,6 +3357,10 @@ func print(args ...interface{}) {
 		fmt.Printf("%#v\n", arg)
 	}
 	return
+}
+
+func makebytearray(n int) []byte {
+    return make([]byte, n)
 }
 
 func bs(s string) []byte {

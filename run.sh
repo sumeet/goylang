@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 ./build.sh
-pushd build
+pushd build >/dev/null
 go run main.go $*
-popd
+popd >/dev/null

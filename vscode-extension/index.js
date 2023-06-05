@@ -1,13 +1,14 @@
 const vscode = require('vscode');
-const { LanguageClient, LanguageClientOptions, ExitNotification } = require('vscode-languageclient');
+const { LanguageClient, LanguageClientOptions, ExitNotification, RevealOutputChannelOn } = require('vscode-languageclient');
 
 function activate(context) {
     let serverOptions = {
-        command: '/home/sumeet/goylang/lsp.sh',
+        command: '/home/sumeet/goylang/lsp-debug.sh',
         args: []
-    };  
+    };
     let clientOptions = {
         documentSelector: [{ scheme: 'file', language: 'goylang' }],
+        revealOutputChannelOn: RevealOutputChannelOn.Info,
         synchronize: {
             configurationSection: 'goylang',
             fileEvents: vscode.workspace.createFileSystemWatcher('**/.goy')
